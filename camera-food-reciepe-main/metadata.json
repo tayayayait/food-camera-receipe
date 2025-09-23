@@ -1,0 +1,5 @@
+{
+  "name": "Fridge Buddy",
+  "description": "An AI-powered fridge manager to help you reduce food waste. Add your pantry items, get timely expiration date notifications, and receive recipe suggestions to use up your ingredients before they spoil.",
+  "requestFramePermissions": []
+}
