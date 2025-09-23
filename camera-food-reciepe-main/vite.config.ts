@@ -8,7 +8,9 @@ export default defineConfig(({ mode }) => {
       plugins: [react()],
       define: {
         'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+        'process.env.VISION_API_URL': JSON.stringify(env.VISION_API_URL),
+        'process.env.VISION_API_KEY': JSON.stringify(env.VISION_API_KEY),
       },
       resolve: {
         alias: {

@@ -15,6 +15,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1iNDCanOspkZrC13tqzikF_
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set the following environment variables in [.env.local](.env.local):
+   - `GEMINI_API_KEY` for your Gemini access token.
+   - `VISION_API_URL` pointing to the HTTPS endpoint of your image analysis service.
+   - `VISION_API_KEY` (optional) if your service requires bearer-token authentication.
 3. Run the app:
    `npm run dev`
