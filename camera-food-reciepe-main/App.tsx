@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import type { PantryItem, Recipe, RecipeRecommendation, RecipeWithVideos } from './types';
+import type { CookingLog, PantryItem, Recipe, RecipeRecommendation, RecipeWithVideos } from './types';
 import { ItemStatus, type RecommendationMode } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import AddItemModal from './components/AddItemModal';
@@ -8,6 +8,7 @@ import PantryList from './components/PantryList';
 import Header from './components/Header';
 import RecipeModal from './components/RecipeModal';
 import CameraCapture from './components/CameraCapture';
+import CookingLogbook from './components/CookingLogbook';
 import { getRecipeSuggestions } from './services/geminiService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
@@ -17,6 +18,7 @@ import { useLanguage } from './context/LanguageContext';
 const App: React.FC = () => {
   const { language, t } = useLanguage();
   const [items, setItems] = useLocalStorage<PantryItem[]>('pantryItems', []);
+  const [logs, setLogs] = useLocalStorage<CookingLog[]>('cookingLogEntries', []);
   const [isAddItemModalOpen, setAddItemModalOpen] = useState(false);
   const [isRecipeModalOpen, setRecipeModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<PantryItem | null>(null);
@@ -71,6 +73,19 @@ const App: React.FC = () => {
 
   const handleDeleteItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const handleAddLogEntry = (log: Omit<CookingLog, 'id' | 'createdAt'>) => {
+    const newEntry: CookingLog = {
+      ...log,
+      id: uuidv4(),
+      createdAt: new Date().toISOString(),
+    };
+    setLogs(current => [newEntry, ...current]);
+  };
+
+  const handleDeleteLogEntry = (id: string) => {
+    setLogs(current => current.filter(log => log.id !== id));
   };
 
   const openRecipeModalFor = (ingredients: string[]) => {
@@ -290,6 +305,12 @@ const App: React.FC = () => {
             onDelete={handleDeleteItem}
           />
         </section>
+
+        <CookingLogbook
+          logs={logs}
+          onAddLog={handleAddLogEntry}
+          onDeleteLog={handleDeleteLogEntry}
+        />
       </main>
 
       <button

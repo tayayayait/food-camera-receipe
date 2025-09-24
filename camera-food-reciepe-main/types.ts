@@ -26,6 +26,7 @@ export interface Recipe {
     recipeName: string;
     description: string;
     ingredientsNeeded: string[];
+    instructions: string[];
 }
 
 export interface RecipeVideo {
@@ -47,3 +48,11 @@ export interface RecipeRecommendation extends RecipeWithVideos {
 }
 
 export type RecommendationMode = 'fridgeFirst' | 'openKitchen';
+
+export interface CookingLog {
+    id: string;
+    title: string;
+    notes: string;
+    recipeName?: string;
+    createdAt: string; // ISO string
+}
