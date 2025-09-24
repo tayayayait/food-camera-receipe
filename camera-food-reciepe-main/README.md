@@ -18,12 +18,12 @@ index a4812bcc3d031391576f28ff39962d87816fa3b5..34646da0c8082de1c89b719a08de0b4d
  **Prerequisites:**  Node.js
  
  
- 1. Install dependencies:
-    `npm install`
--2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-+2. Set the following environment variables in [.env.local](.env.local):
-+   - `GEMINI_API_KEY` for your Gemini access token.
-+   - `VISION_API_URL` pointing to the HTTPS endpoint of your image analysis service.
-+   - `VISION_API_KEY` (optional) if your service requires bearer-token authentication.
- 3. Run the app:
-    `npm run dev`
+1. Install dependencies:
+   `npm install`
+2. Set the following environment variables in [.env.local](.env.local):
+   - `GEMINI_API_KEY` for your Gemini access token. This key powers both text recipes and the built-in vision fallback.
+   - `VISION_API_URL` (optional) pointing to the HTTPS endpoint of your custom image analysis service.
+   - `VISION_API_KEY` (optional) if your service requires bearer-token authentication.
+   - If you do not provide a `VISION_API_URL`, the app will automatically analyze photos with Gemini 1.5 Flash using the `GEMINI_API_KEY`.
+3. Run the app:
+   `npm run dev`

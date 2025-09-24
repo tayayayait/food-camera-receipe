@@ -71,7 +71,8 @@ export const errorNoIngredientsFound = '인식할 수 있는 재료를 찾지 �
 export const errorPhotoAnalysis = '사진을 분석할 수 없었어요. 다시 시도해주세요.';
 export const errorUnknown = '알 수 없는 오류가 발생했습니다.';
 
-export const error_gemini_api_key = 'Gemini API 키가 설정되지 않았어요. API_KEY 환경 변수를 확인해주세요.';
+export const error_gemini_api_key =
+  'Gemini API 키가 설정되지 않았어요. GEMINI_API_KEY (또는 기존 API_KEY) 환경 변수를 확인해주세요.';
 export const error_gemini_fetch = '레시피를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 export const error_youtube_api_key = 'API_KEY 환경 변수가 설정되지 않았습니다. 레시피 영상이 반환되지 않습니다.';
 export const error_youtube_fetch = '레시피 영상을 불러오지 못했어요. 잠시 후 다시 시도해주세요.';

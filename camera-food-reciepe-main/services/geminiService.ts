@@ -1,9 +1,10 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import type { Recipe } from '../types';
 
-const API_KEY = process.env.API_KEY as string | undefined;
+const GEMINI_API_KEY =
+  (process.env.GEMINI_API_KEY as string | undefined) ?? (process.env.API_KEY as string | undefined);
 
-const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
+const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 const recipeSchema = {
     type: Type.ARRAY,
@@ -31,7 +32,7 @@ const recipeSchema = {
 };
 
 export async function getRecipeSuggestions(ingredients: string[], language: 'en' | 'ko'): Promise<Recipe[]> {
-    if (!API_KEY || !ai) {
+    if (!GEMINI_API_KEY || !ai) {
         throw new Error('error_gemini_api_key');
     }
     if (ingredients.length === 0) {
