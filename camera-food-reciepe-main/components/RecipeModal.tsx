@@ -1,7 +1,13 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { RecipeRecommendation, RecommendationMode } from '../types';
 import { UtensilsIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
+
+const parseIngredientsInput = (text: string) =>
+  text
+    .split(/[\n,]/)
+    .map(part => part.trim())
+    .filter(Boolean);
 
 interface RecipeModalProps {
   isOpen: boolean;
@@ -12,6 +18,7 @@ interface RecipeModalProps {
   ingredients: string[];
   recommendationMode: RecommendationMode;
   onChangeRecommendationMode: (mode: RecommendationMode) => void;
+  onUpdateIngredients: (ingredients: string[]) => void | Promise<void>;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -32,8 +39,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   ingredients,
   recommendationMode,
   onChangeRecommendationMode,
+  onUpdateIngredients,
 }) => {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   if (!isOpen) return null;
 
   const filteredRecipes =
@@ -43,6 +51,59 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
   const noMatchesWithFilter =
     !isLoading && !error && filteredRecipes.length === 0 && recipes.length > 0 && recommendationMode === 'fridgeFirst';
+
+  const [ingredientsText, setIngredientsText] = useState(() => ingredients.join(', '));
+
+  useEffect(() => {
+    setIngredientsText(ingredients.join(', '));
+  }, [ingredients]);
+
+  const previewIngredients = useMemo(() => parseIngredientsInput(ingredientsText), [ingredientsText]);
+
+  const recipeSearchProviders = useMemo(
+    () =>
+      language === 'ko'
+        ? [
+            {
+              name: '만개의 레시피',
+              buildUrl: (query: string) =>
+                `https://www.10000recipe.com/recipe/list.html?q=${encodeURIComponent(query)}`,
+            },
+            {
+              name: '네이버 레시피',
+              buildUrl: (query: string) =>
+                `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 레시피`)}`,
+            },
+            {
+              name: 'YouTube',
+              buildUrl: (query: string) =>
+                `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} 요리`)}`,
+            },
+          ]
+        : [
+            {
+              name: 'Allrecipes',
+              buildUrl: (query: string) =>
+                `https://www.allrecipes.com/search?q=${encodeURIComponent(query)}`,
+            },
+            {
+              name: 'Serious Eats',
+              buildUrl: (query: string) =>
+                `https://www.seriouseats.com/search?q=${encodeURIComponent(query)}`,
+            },
+            {
+              name: 'YouTube',
+              buildUrl: (query: string) =>
+                `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} recipe`)}`,
+            },
+          ],
+    [language]
+  );
+
+  const handleSubmitIngredients = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    await onUpdateIngredients(previewIngredients);
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
@@ -64,6 +125,46 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         </div>
 
         <div className="p-6 md:p-8 overflow-y-auto flex-grow space-y-6">
+          <form onSubmit={handleSubmitIngredients} className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="ingredients-editor" className="text-sm font-semibold text-gray-700">
+                {t('recipeModalEditIngredientsLabel')}
+              </label>
+              <textarea
+                id="ingredients-editor"
+                value={ingredientsText}
+                onChange={event => setIngredientsText(event.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                placeholder={t('recipeModalEditIngredientsPlaceholder')}
+              />
+              <p className="text-xs text-gray-500">{t('recipeModalEditIngredientsHint')}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {previewIngredients.length > 0 ? (
+                previewIngredients.map(ingredient => (
+                  <span
+                    key={ingredient}
+                    className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-medium text-brand-blue"
+                  >
+                    {ingredient}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-gray-400">{t('recipeModalEditIngredientsEmpty')}</span>
+              )}
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-500 transition disabled:opacity-60"
+                disabled={isLoading || previewIngredients.length === 0}
+              >
+                {isLoading ? t('recipeModalEditIngredientsUpdating') : t('recipeModalEditIngredientsButton')}
+              </button>
+            </div>
+          </form>
+
           <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
               <p className="text-sm font-semibold text-gray-700">{t('recipeModalModeTitle')}</p>
@@ -127,26 +228,34 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                       <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
                     </div>
-                    <div className="flex flex-col items-start md:items-end gap-2">
-                      <span
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                          recipe.isFullyMatched
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : 'bg-amber-50 text-amber-700'
+                      <div className="flex flex-col items-start md:items-end gap-2">
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            recipe.isFullyMatched
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : 'bg-amber-50 text-amber-700'
                         }`}
                       >
                         {recipe.isFullyMatched
                           ? t('recipeModalBadgeReady')
                           : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
                       </span>
-                      <a
-                        href={`https://www.allrecipes.com/search?q=${encodeURIComponent(recipe.recipeName)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-semibold text-brand-blue hover:text-blue-600"
-                      >
-                        {t('recipeModalViewRecipe')}
-                      </a>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                        {t('recipeModalSearchProvidersLabel')}
+                      </p>
+                      <div className="flex flex-wrap gap-2 md:justify-end">
+                        {recipeSearchProviders.map(provider => (
+                          <a
+                            key={`${provider.name}-${recipe.recipeName}`}
+                            href={provider.buildUrl(recipe.recipeName)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-semibold text-brand-blue hover:bg-brand-blue/20 transition"
+                          >
+                            {provider.name}
+                          </a>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
