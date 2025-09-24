@@ -1,15 +1,17 @@
 import React from 'react';
-import type { RecipeWithVideos } from '../types';
+import type { RecipeRecommendation, RecommendationMode } from '../types';
 import { UtensilsIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 
 interface RecipeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  recipes: RecipeWithVideos[];
+  recipes: RecipeRecommendation[];
   isLoading: boolean;
   error: string | null;
   ingredients: string[];
+  recommendationMode: RecommendationMode;
+  onChangeRecommendationMode: (mode: RecommendationMode) => void;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -21,9 +23,26 @@ const LoadingSkeleton: React.FC = () => (
   </div>
 );
 
-const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipes, isLoading, error, ingredients }) => {
+const RecipeModal: React.FC<RecipeModalProps> = ({
+  isOpen,
+  onClose,
+  recipes,
+  isLoading,
+  error,
+  ingredients,
+  recommendationMode,
+  onChangeRecommendationMode,
+}) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
+
+  const filteredRecipes =
+    recommendationMode === 'fridgeFirst'
+      ? recipes.filter(recipe => recipe.isFullyMatched)
+      : recipes;
+
+  const noMatchesWithFilter =
+    !isLoading && !error && filteredRecipes.length === 0 && recipes.length > 0 && recommendationMode === 'fridgeFirst';
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
@@ -45,6 +64,47 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipes, isL
         </div>
 
         <div className="p-6 md:p-8 overflow-y-auto flex-grow space-y-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-gray-700">{t('recipeModalModeTitle')}</p>
+              <p className="text-xs text-gray-500">{t('recipeModalModeDescription')}</p>
+            </div>
+            <div className="inline-flex items-stretch rounded-xl bg-gray-100 p-1">
+              <button
+                type="button"
+                onClick={() => onChangeRecommendationMode('fridgeFirst')}
+                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                  recommendationMode === 'fridgeFirst'
+                    ? 'bg-white text-brand-blue shadow'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="block text-left">
+                  {t('recipeModalModeFridgeFirst')}
+                  <span className="block text-[11px] font-normal text-gray-500">
+                    {t('recipeModalModeFridgeFirstHint')}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onChangeRecommendationMode('openKitchen')}
+                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                  recommendationMode === 'openKitchen'
+                    ? 'bg-white text-brand-orange shadow'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="block text-left">
+                  {t('recipeModalModeOpenKitchen')}
+                  <span className="block text-[11px] font-normal text-gray-500">
+                    {t('recipeModalModeOpenKitchenHint')}
+                  </span>
+                </span>
+              </button>
+            </div>
+          </div>
+
           {isLoading && (
             <div className="space-y-6">
               <LoadingSkeleton />
@@ -58,30 +118,76 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipes, isL
             </div>
           )}
 
-          {!isLoading && !error && recipes.length > 0 && (
+          {!isLoading && !error && filteredRecipes.length > 0 && (
             <div className="space-y-6">
-              {recipes.map((recipe, index) => (
+              {filteredRecipes.map((recipe, index) => (
                 <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                    <div className="space-y-2">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="space-y-2 flex-1">
                       <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
                     </div>
-                    <a
-                      href={`https://www.allrecipes.com/search?q=${encodeURIComponent(recipe.recipeName)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-semibold text-brand-blue hover:text-blue-600 flex-shrink-0"
-                    >
-                      {t('recipeModalViewRecipe')}
-                    </a>
+                    <div className="flex flex-col items-start md:items-end gap-2">
+                      <span
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                          recipe.isFullyMatched
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {recipe.isFullyMatched
+                          ? t('recipeModalBadgeReady')
+                          : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
+                      </span>
+                      <a
+                        href={`https://www.allrecipes.com/search?q=${encodeURIComponent(recipe.recipeName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-brand-blue hover:text-blue-600"
+                      >
+                        {t('recipeModalViewRecipe')}
+                      </a>
+                    </div>
                   </div>
 
                   <div className="bg-gray-50 rounded-xl p-4">
                     <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
-                    <p className="text-xs text-gray-500 mt-1 italic">
-                      {recipe.ingredientsNeeded.join(', ')}
-                    </p>
+                    {recipe.ingredientsNeeded.length === 0 ? (
+                      <p className="text-xs text-gray-500 mt-2 italic">{t('recipeModalNoExtraIngredients')}</p>
+                    ) : recipe.isFullyMatched ? (
+                      <p className="text-xs font-semibold text-emerald-600 mt-2">{t('recipeModalAllIngredientsOnHand')}</p>
+                    ) : (
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">{t('recipeModalMissingIngredientsLabel')}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {recipe.missingIngredients.map(ingredient => (
+                              <span
+                                key={`missing-${recipe.recipeName}-${ingredient}`}
+                                className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm border border-amber-100"
+                              >
+                                {ingredient}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {recipe.matchedIngredients.length > 0 && (
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{t('recipeModalMatchedIngredientsLabel')}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {recipe.matchedIngredients.map(ingredient => (
+                                <span
+                                  key={`matched-${recipe.recipeName}-${ingredient}`}
+                                  className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100"
+                                >
+                                  {ingredient}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-3">
@@ -116,7 +222,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({ isOpen, onClose, recipes, isL
             </div>
           )}
 
-          {!isLoading && !error && recipes.length === 0 && (
+          {!isLoading && !error && noMatchesWithFilter && (
+            <p className="text-gray-500 text-center py-10">{t('recipeModalNoFridgeMatches')}</p>
+          )}
+
+          {!isLoading && !error && filteredRecipes.length === 0 && !noMatchesWithFilter && (
             <p className="text-gray-500 text-center py-10">{t('recipeModalNoResults')}</p>
           )}
         </div>
