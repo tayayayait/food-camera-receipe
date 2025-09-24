@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
-import type { PantryItem, Recipe, RecipeWithVideos } from './types';
-import { ItemStatus } from './types';
+import type { PantryItem, Recipe, RecipeRecommendation, RecipeWithVideos } from './types';
+import { ItemStatus, type RecommendationMode } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import AddItemModal from './components/AddItemModal';
 import PantryList from './components/PantryList';
@@ -20,12 +20,15 @@ const App: React.FC = () => {
   const [isAddItemModalOpen, setAddItemModalOpen] = useState(false);
   const [isRecipeModalOpen, setRecipeModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<PantryItem | null>(null);
-  const [recipes, setRecipes] = useState<RecipeWithVideos[]>([]);
+  const [recipes, setRecipes] = useState<RecipeRecommendation[]>([]);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCameraOpen, setCameraOpen] = useState(false);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
+  const [recommendationMode, setRecommendationMode] = useState<RecommendationMode>('fridgeFirst');
+
+  const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
   const handleAddItem = (item: Omit<PantryItem, 'id' | 'acquiredAt' | 'status'>) => {
     const newItem: PantryItem = {
@@ -59,7 +62,10 @@ const App: React.FC = () => {
     setRecipeModalOpen(true);
   };
 
-  const enrichRecipesWithVideos = async (suggestions: Recipe[], ingredients: string[]): Promise<RecipeWithVideos[]> => {
+  const enrichRecipesWithVideos = async (
+    suggestions: Recipe[],
+    ingredients: string[]
+  ): Promise<RecipeWithVideos[]> => {
     const enriched = await Promise.all(
       suggestions.map(async suggestion => {
         try {
@@ -75,7 +81,7 @@ const App: React.FC = () => {
     return enriched;
   };
 
-  const fetchRecipesForIngredients = async (ingredients: string[]) => {
+  const fetchRecipesForIngredients = async (ingredients: string[], availableIngredientNames: string[]) => {
     setError(null);
     setIsLoadingRecipes(true);
 
@@ -84,14 +90,38 @@ const App: React.FC = () => {
       if (!suggestions.length) {
         setRecipes([]);
         setError(t('errorNoRecipes'));
+        setRecommendationMode('fridgeFirst');
         return;
       }
       const enriched = await enrichRecipesWithVideos(suggestions, ingredients);
-      setRecipes(enriched);
+      const availableSet = new Set(availableIngredientNames.map(normalizeIngredientName));
+      const recommendations: RecipeRecommendation[] = enriched
+        .map(recipe => {
+          const missingIngredients = recipe.ingredientsNeeded.filter(
+            ingredient => !availableSet.has(normalizeIngredientName(ingredient))
+          );
+          const matchedIngredients = recipe.ingredientsNeeded.filter(ingredient =>
+            availableSet.has(normalizeIngredientName(ingredient))
+          );
+
+          return {
+            ...recipe,
+            missingIngredients,
+            matchedIngredients,
+            isFullyMatched: missingIngredients.length === 0,
+          };
+        })
+        .sort((a, b) => Number(a.isFullyMatched) === Number(b.isFullyMatched)
+          ? a.missingIngredients.length - b.missingIngredients.length
+          : Number(b.isFullyMatched) - Number(a.isFullyMatched));
+
+      setRecipes(recommendations);
+      setRecommendationMode('fridgeFirst');
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorUnknown';
       setRecipes([]);
       setError(t(messageKey as any));
+      setRecommendationMode('fridgeFirst');
     } finally {
       setIsLoadingRecipes(false);
     }
@@ -99,6 +129,7 @@ const App: React.FC = () => {
 
   const handleGetRecipes = async () => {
     const activeItems = items.filter(item => item.status === ItemStatus.Active);
+    const allActiveNames = activeItems.map(item => item.name);
     const topIngredients = activeItems
       .sort((a, b) => a.name.localeCompare(b.name, language))
       .slice(0, 8)
@@ -113,7 +144,7 @@ const App: React.FC = () => {
     }
 
     openRecipeModalFor(topIngredients);
-    await fetchRecipesForIngredients(topIngredients);
+    await fetchRecipesForIngredients(topIngredients, allActiveNames);
   };
 
   const handleCameraCapture = async (photo: Blob) => {
@@ -126,13 +157,20 @@ const App: React.FC = () => {
         throw new Error('errorNoIngredientsFound');
       }
       openRecipeModalFor(detectedIngredients);
-      await fetchRecipesForIngredients(detectedIngredients);
+      const activeIngredientNames = items
+        .filter(item => item.status === ItemStatus.Active)
+        .map(item => item.name);
+      const availableIngredientNames = Array.from(
+        new Set([...activeIngredientNames, ...detectedIngredients])
+      );
+      await fetchRecipesForIngredients(detectedIngredients, availableIngredientNames);
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorPhotoAnalysis';
       setSelectedIngredients([]);
       setRecipes([]);
       setError(t(messageKey as any));
       setRecipeModalOpen(true);
+      setRecommendationMode('fridgeFirst');
     } finally {
       setIsAnalyzingPhoto(false);
       setCameraOpen(false);
@@ -140,6 +178,11 @@ const App: React.FC = () => {
   };
 
   const activeItems = items.filter(item => item.status === ItemStatus.Active);
+
+  const handleCloseRecipeModal = () => {
+    setRecipeModalOpen(false);
+    setRecommendationMode('fridgeFirst');
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-100 font-sans text-gray-900">
@@ -232,11 +275,13 @@ const App: React.FC = () => {
       {isRecipeModalOpen && (
         <RecipeModal
           isOpen={isRecipeModalOpen}
-          onClose={() => setRecipeModalOpen(false)}
+          onClose={handleCloseRecipeModal}
           recipes={recipes}
           isLoading={isLoadingRecipes}
           error={error}
           ingredients={selectedIngredients}
+          recommendationMode={recommendationMode}
+          onChangeRecommendationMode={setRecommendationMode}
         />
       )}
 

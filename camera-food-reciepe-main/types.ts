@@ -39,3 +39,11 @@ export interface RecipeVideo {
 export interface RecipeWithVideos extends Recipe {
     videos: RecipeVideo[];
 }
+
+export interface RecipeRecommendation extends RecipeWithVideos {
+    missingIngredients: string[];
+    matchedIngredients: string[];
+    isFullyMatched: boolean;
+}
+
+export type RecommendationMode = 'fridgeFirst' | 'openKitchen';
