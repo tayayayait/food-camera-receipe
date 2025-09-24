@@ -227,6 +227,25 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     <div className="space-y-2 flex-1">
                       <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
+                      {recipe.instructions.length > 0 && (
+                        <div className="mt-4 bg-brand-orange/5 border border-brand-orange/20 rounded-xl p-4 space-y-3">
+                          <div>
+                            <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
+                            <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                          </div>
+                          <ol className="space-y-3">
+                            {recipe.instructions.map((instruction, instructionIndex) => (
+                              <li key={`${recipe.recipeName}-instruction-${instructionIndex}`} className="flex gap-3">
+                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-orange text-white text-xs font-semibold">
+                                  {instructionIndex + 1}
+                                </span>
+                                <p className="text-sm text-gray-700 leading-relaxed">{instruction}</p>
+                              </li>
+                            ))}
+                          </ol>
+                          <p className="text-[11px] uppercase tracking-wide text-brand-orange/80">{t('recipeModalStepByStepHint')}</p>
+                        </div>
+                      )}
                     </div>
                       <div className="flex flex-col items-start md:items-end gap-2">
                         <span

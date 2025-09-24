@@ -26,8 +26,15 @@ const recipeSchema = {
                 },
                 description: 'A list of other common ingredients needed for this recipe, excluding the ones provided by the user.',
             },
+            instructions: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.STRING,
+                },
+                description: 'Step-by-step cooking directions that are easy for a middle school student to follow.',
+            },
         },
-        required: ['recipeName', 'description', 'ingredientsNeeded'],
+        required: ['recipeName', 'description', 'ingredientsNeeded', 'instructions'],
     }
 };
 
@@ -40,8 +47,8 @@ export async function getRecipeSuggestions(ingredients: string[], language: 'en'
     }
 
     const prompt = language === 'ko'
-    ? `제 주방에 다음 재료들이 있습니다: ${ingredients.join(', ')}. 이 재료들을 활용하는 간단한 레시피 3가지를 추천해 주세요. 각 레시피에 대해 이름, 간단하고 매력적인 설명, 그리고 필요할 수 있는 다른 일반적인 재료 목록을 응답으로 주세요.`
-    : `I have the following ingredients in my kitchen: ${ingredients.join(', ')}. Suggest 3 friendly recipes that highlight these ingredients. For each recipe respond with a name, a short and encouraging description, and a list of other common household ingredients I might need.`;
+    ? `제 주방에 다음 재료들이 있습니다: ${ingredients.join(', ')}. 이 재료들을 활용하는 레시피 3가지를 추천해 주세요. 각 레시피는 반드시 다음 정보를 포함해야 합니다.\n- 레시피 이름\n- 완성 결과가 훌륭해 보이도록 유도하는 짧고 설레는 설명\n- 제공된 재료 외에 필요할 수 있는 다른 흔한 재료 목록\n- 중학생도 따라 할 수 있을 만큼 간단하고 명확한 문장으로 작성된 단계별 조리법 (최소 4단계, 각 단계는 성공을 위한 팁 포함)\n\n단계는 순서를 지키면 완성도가 높아지도록 구성하고, 응답은 JSON 형식만 반환하세요.`
+    : `I have the following ingredients in my kitchen: ${ingredients.join(', ')}. Suggest 3 approachable recipes that still lead to a restaurant-worthy finish. For each recipe you MUST return:\n- recipeName\n- a short, exciting description that promises a great result\n- ingredientsNeeded listing other common pantry items not in my list\n- instructions: at least four sequential steps written in plain, encouraging sentences that a middle-school student can follow, including any essential success tips\n\nKeep the tone supportive, ensure the guidance feels easy, and respond with JSON only.`;
 
 
     try {
@@ -51,13 +58,18 @@ export async function getRecipeSuggestions(ingredients: string[], language: 'en'
             config: {
                 responseMimeType: 'application/json',
                 responseSchema: recipeSchema,
-                temperature: 0.7,
+                temperature: 0.6,
             },
         });
 
         const jsonText = response.text.trim();
         const recipes: Recipe[] = JSON.parse(jsonText);
-        return recipes;
+        return recipes.map(recipe => ({
+            ...recipe,
+            instructions: Array.isArray(recipe.instructions)
+                ? recipe.instructions.map(step => String(step).trim()).filter(Boolean)
+                : [],
+        }));
     } catch (error) {
         console.error('Error fetching recipe suggestions from Gemini API:', error);
         throw new Error('error_gemini_fetch');
