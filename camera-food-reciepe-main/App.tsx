@@ -30,6 +30,22 @@ const App: React.FC = () => {
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
+  const sanitizeIngredients = (rawIngredients: string[]) => {
+    const seen = new Set<string>();
+    const sanitized: string[] = [];
+
+    rawIngredients.forEach(ingredient => {
+      const trimmed = ingredient.trim();
+      if (!trimmed) return;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      sanitized.push(trimmed);
+    });
+
+    return sanitized;
+  };
+
   const handleAddItem = (item: Omit<PantryItem, 'id' | 'acquiredAt' | 'status'>) => {
     const newItem: PantryItem = {
       ...item,
@@ -153,17 +169,18 @@ const App: React.FC = () => {
     try {
       setError(null);
       const detectedIngredients = await analyzeIngredientsFromImage(photo);
-      if (!detectedIngredients || detectedIngredients.length === 0) {
+      const sanitizedDetectedIngredients = sanitizeIngredients(detectedIngredients ?? []);
+      if (!sanitizedDetectedIngredients || sanitizedDetectedIngredients.length === 0) {
         throw new Error('errorNoIngredientsFound');
       }
-      openRecipeModalFor(detectedIngredients);
+      openRecipeModalFor(sanitizedDetectedIngredients);
       const activeIngredientNames = items
         .filter(item => item.status === ItemStatus.Active)
         .map(item => item.name);
       const availableIngredientNames = Array.from(
-        new Set([...activeIngredientNames, ...detectedIngredients])
+        new Set([...activeIngredientNames, ...sanitizedDetectedIngredients])
       );
-      await fetchRecipesForIngredients(detectedIngredients, availableIngredientNames);
+      await fetchRecipesForIngredients(sanitizedDetectedIngredients, availableIngredientNames);
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorPhotoAnalysis';
       setSelectedIngredients([]);
@@ -178,6 +195,26 @@ const App: React.FC = () => {
   };
 
   const activeItems = items.filter(item => item.status === ItemStatus.Active);
+
+  const handleUpdateIngredientsFromModal = async (rawIngredients: string[]) => {
+    const sanitized = sanitizeIngredients(rawIngredients);
+
+    if (sanitized.length === 0) {
+      setSelectedIngredients([]);
+      setRecipes([]);
+      setError(t('errorAddItemsPrompt'));
+      setRecommendationMode('fridgeFirst');
+      return;
+    }
+
+    setSelectedIngredients(sanitized);
+    const activeIngredientNames = items
+      .filter(item => item.status === ItemStatus.Active)
+      .map(item => item.name);
+    const availableIngredientNames = Array.from(new Set([...activeIngredientNames, ...sanitized]));
+
+    await fetchRecipesForIngredients(sanitized, availableIngredientNames);
+  };
 
   const handleCloseRecipeModal = () => {
     setRecipeModalOpen(false);
@@ -282,6 +319,7 @@ const App: React.FC = () => {
           ingredients={selectedIngredients}
           recommendationMode={recommendationMode}
           onChangeRecommendationMode={setRecommendationMode}
+          onUpdateIngredients={handleUpdateIngredientsFromModal}
         />
       )}
 
