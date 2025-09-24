@@ -71,7 +71,8 @@ export const errorNoIngredientsFound = 'No recognizable ingredients were found. 
 export const errorPhotoAnalysis = 'We could not analyse that photo. Please try again.';
 export const errorUnknown = 'An unknown error occurred.';
 
-export const error_gemini_api_key = 'Gemini API key is not configured. Please set the API_KEY environment variable.';
+export const error_gemini_api_key =
+  'Gemini API key is not configured. Please set the GEMINI_API_KEY (or legacy API_KEY) environment variable.';
 export const error_gemini_fetch = 'Failed to fetch recipes. Please try again later.';
 export const error_youtube_api_key = 'API_KEY environment variable is not set. No recipe videos will be returned.';
 export const error_youtube_fetch = 'Failed to fetch recipe videos. Please try again later.';
