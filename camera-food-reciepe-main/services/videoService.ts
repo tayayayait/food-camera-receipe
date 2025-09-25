@@ -39,6 +39,43 @@ interface YouTubeVideosResponse {
   items?: YouTubeVideoDetail[];
 }
 
+const normalizeText = (text: string) =>
+  text
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s가-힣]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const buildKeywords = (text: string) => normalizeText(text).split(' ').filter(word => word.length > 1);
+
+const isVideoRelevant = (title: string | undefined, recipeName: string, ingredients: string[]) => {
+  if (!title) {
+    return false;
+  }
+
+  const normalizedTitle = normalizeText(title);
+  if (!normalizedTitle) {
+    return false;
+  }
+
+  const recipeKeywords = buildKeywords(recipeName);
+  const ingredientKeywords = ingredients.flatMap(ingredient => buildKeywords(ingredient)).slice(0, 6);
+
+  const recipeMatches = recipeKeywords.filter(keyword => normalizedTitle.includes(keyword));
+  if (recipeKeywords.length > 0 && recipeMatches.length > 0) {
+    return true;
+  }
+
+  if (ingredientKeywords.length === 0) {
+    return recipeKeywords.length === 0;
+  }
+
+  const ingredientMatches = ingredientKeywords.filter(keyword => normalizedTitle.includes(keyword));
+  return ingredientMatches.length >= Math.min(2, ingredientKeywords.length);
+};
+
 export async function getRecipeVideos(recipeName: string, ingredients: string[], maxResults = 2): Promise<RecipeVideo[]> {
   if (!YOUTUBE_API_KEY) {
     console.warn('YOUTUBE_API_KEY (or API_KEY) environment variable is not set. No recipe videos will be returned.');
@@ -129,6 +166,10 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
           snippet.thumbnails?.default?.url;
 
         if (!thumbnail) {
+          return null;
+        }
+
+        if (!isVideoRelevant(snippet.title, recipeName, ingredients)) {
           return null;
         }
 

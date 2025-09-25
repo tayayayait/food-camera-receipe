@@ -9,6 +9,46 @@ const parseIngredientsInput = (text: string) =>
     .map(part => part.trim())
     .filter(Boolean);
 
+const extractStepSummary = (instruction: string) => {
+  const cleaned = instruction.trim();
+  if (!cleaned) {
+    return { summary: '', details: '' };
+  }
+
+  const prioritySeparators = [':', ' - ', ' – ', ' — '];
+  for (const separator of prioritySeparators) {
+    const index = cleaned.indexOf(separator);
+    if (index > 0) {
+      const summary = cleaned.slice(0, index).trim();
+      const details = cleaned.slice(index + separator.length).trim();
+      if (summary) {
+        return { summary, details };
+      }
+    }
+  }
+
+  const sentenceMatch = cleaned.match(/^(.*?[.!?])\s+(.*)$/);
+  if (sentenceMatch) {
+    const [, firstSentence, rest] = sentenceMatch;
+    return {
+      summary: firstSentence.trim(),
+      details: rest.trim(),
+    };
+  }
+
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length > 8) {
+    const summary = words.slice(0, 6).join(' ');
+    const details = words.slice(6).join(' ');
+    return {
+      summary: `${summary}…`,
+      details,
+    };
+  }
+
+  return { summary: cleaned, details: '' };
+};
+
 interface RecipeModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -228,22 +268,37 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                       <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
                       <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
                       {recipe.instructions.length > 0 && (
-                        <div className="mt-4 bg-brand-orange/5 border border-brand-orange/20 rounded-xl p-4 space-y-3">
-                          <div>
-                            <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
-                            <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                        <div className="mt-4 rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
+                              <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                            </div>
                           </div>
-                          <ol className="space-y-3">
-                            {recipe.instructions.map((instruction, instructionIndex) => (
-                              <li key={`${recipe.recipeName}-instruction-${instructionIndex}`} className="flex gap-3">
-                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-orange text-white text-xs font-semibold">
-                                  {instructionIndex + 1}
-                                </span>
-                                <p className="text-sm text-gray-700 leading-relaxed">{instruction}</p>
-                              </li>
-                            ))}
-                          </ol>
-                          <p className="text-[11px] uppercase tracking-wide text-brand-orange/80">{t('recipeModalStepByStepHint')}</p>
+                          <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            {recipe.instructions.map((instruction, instructionIndex) => {
+                              const { summary, details } = extractStepSummary(instruction);
+                              return (
+                                <div
+                                  key={`${recipe.recipeName}-instruction-${instructionIndex}`}
+                                  className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
+                                      {instructionIndex + 1}
+                                    </span>
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                      {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
+                            {t('recipeModalStepByStepHint')}
+                          </p>
                         </div>
                       )}
                     </div>
