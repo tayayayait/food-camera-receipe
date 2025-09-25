@@ -90,6 +90,8 @@ const App: React.FC = () => {
   const [nutritionIngredients, setNutritionIngredients] = useState<string[]>([]);
   const [activeMemoryForCooking, setActiveMemoryForCooking] = useState<RecipeMemory | null>(null);
   const [nutritionContext, setNutritionContext] = useState<NutritionContext | null>(null);
+  const [manualIngredientsInput, setManualIngredientsInput] = useState('');
+  const [manualInputError, setManualInputError] = useState<string | null>(null);
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
@@ -385,6 +387,7 @@ const App: React.FC = () => {
 
   const handleGetRecipes = async () => {
     setActiveView('recipes');
+    setManualInputError(null);
     const activeItems = items;
     if (activeItems.length === 0) {
       setSelectedIngredients([]);
@@ -398,10 +401,7 @@ const App: React.FC = () => {
       .sort((a, b) => a.name.localeCompare(b.name, language))
       .map(item => item.name);
     const topIngredients = sortedNames.slice(0, 8);
-    const sanitizedTopIngredients = applyNutritionFrom(topIngredients, {
-      focusView: false,
-      context: { type: 'scan' },
-    });
+    const sanitizedTopIngredients = sanitizeIngredients(topIngredients);
 
     if (sanitizedTopIngredients.length === 0) {
       setSelectedIngredients([]);
@@ -427,11 +427,7 @@ const App: React.FC = () => {
         throw new Error('errorNoIngredientsFound');
       }
       commitDetectedIngredients(sanitizedDetectedIngredients);
-      applyNutritionFrom(sanitizedDetectedIngredients, {
-        alreadySanitized: true,
-        focusView: true,
-        context: { type: 'scan' },
-      });
+      setManualInputError(null);
       openRecipeModalFor(sanitizedDetectedIngredients);
       await fetchRecipesForIngredients(sanitizedDetectedIngredients, sanitizedDetectedIngredients);
     } catch (err) {
@@ -444,10 +440,32 @@ const App: React.FC = () => {
       setNutritionSummary(null);
       setNutritionIngredients([]);
       setNutritionContext(null);
+      setManualInputError(null);
     } finally {
       setIsAnalyzingPhoto(false);
       setCameraOpen(false);
     }
+  };
+
+  const handleManualIngredientsSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const rawEntries = manualIngredientsInput
+      .split(/[\n,]/)
+      .map(entry => entry.trim())
+      .filter(Boolean);
+    const sanitized = sanitizeIngredients(rawEntries);
+
+    if (sanitized.length === 0) {
+      setManualInputError(t('pantryManualInputError'));
+      return;
+    }
+
+    setManualInputError(null);
+    commitDetectedIngredients(sanitized);
+    setManualIngredientsInput('');
+    openRecipeModalFor(sanitized);
+    setActiveView('recipes');
+    await fetchRecipesForIngredients(sanitized, sanitized);
   };
 
   const activeItems = items;
@@ -535,6 +553,41 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
+            <form
+              onSubmit={handleManualIngredientsSubmit}
+              className="rounded-3xl border border-[#7CB7FF]/20 bg-white/70 p-5 md:p-6 space-y-3"
+            >
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-[#1C2B4B]" htmlFor="manual-ingredients">
+                  {t('pantryManualInputTitle')}
+                </label>
+                <textarea
+                  id="manual-ingredients"
+                  className="w-full rounded-2xl border border-[#7CB7FF]/30 bg-white/80 px-4 py-3 text-sm text-[#1C2B4B] shadow-sm focus:border-[#7CB7FF] focus:outline-none focus:ring-2 focus:ring-[#7CB7FF]/40"
+                  rows={3}
+                  value={manualIngredientsInput}
+                  onChange={event => {
+                    setManualIngredientsInput(event.target.value);
+                    if (manualInputError) {
+                      setManualInputError(null);
+                    }
+                  }}
+                  placeholder={t('pantryManualInputPlaceholder')}
+                />
+                <p className="text-xs text-[#1C2B4B]/60">{t('pantryManualInputHint')}</p>
+                {manualInputError && (
+                  <p className="text-xs font-semibold text-red-500">{manualInputError}</p>
+                )}
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-full bg-[#7CB7FF] px-5 py-2 text-sm font-semibold text-white shadow-[0_16px_26px_rgba(124,183,255,0.35)] hover:shadow-[0_20px_32px_rgba(124,183,255,0.45)]"
+                >
+                  <SparklesIcon /> {t('pantryManualInputSubmit')}
+                </button>
+              </div>
+            </form>
             <div className="rounded-3xl border border-[#EBF5FF] bg-[#EBF5FF]/60 p-4 md:p-6">
               <PantryList items={activeItems} />
             </div>

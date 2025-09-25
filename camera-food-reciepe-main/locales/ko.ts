@@ -53,6 +53,11 @@ export const pantrySectionScanButton = '냉장고 스캔';
 export const pantrySectionNutritionButton = '영양 패널 열기';
 export const pantryEmptyTitle = '아직 스캔 기록이 없어요';
 export const pantryEmptyDescription = '냉장고를 촬영하면 인식된 재료가 여기에 표시돼요.';
+export const pantryManualInputTitle = '직접 재료 입력하기';
+export const pantryManualInputPlaceholder = '예: 닭가슴살, 마늘, 밥';
+export const pantryManualInputHint = '쉼표 또는 줄바꿈으로 재료를 구분해주세요.';
+export const pantryManualInputSubmit = '이 재료로 활용하기';
+export const pantryManualInputError = '최소 한 가지 재료를 입력해주세요.';
 
 export const itemCardAdded = '감지됨';
 export const itemCardRecently = '최근';
