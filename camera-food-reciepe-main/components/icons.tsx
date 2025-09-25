@@ -71,3 +71,54 @@ export const UtensilsIcon: React.FC = () => (
         <path d="M21 15V2v0a5 5 0 00-5 5v6c0 1.1.9 2 2 2h3z"/>
     </svg>
 );
+
+export const BookOpenIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M12 21V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14" />
+    <path d="M22 21V5a2 2 0 0 0-2-2h-6a2 2 0 0 0-2 2v16" />
+    <path d="M2 19a2 2 0 0 1 2-2h6" />
+    <path d="M22 19a2 2 0 0 0-2-2h-6" />
+  </svg>
+);
+
+export const FlameIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M8.5 14a3.5 3.5 0 1 0 6.5 2.5c0-2-1.5-3-1.5-4.5 0-1.5 1-2.5 1-4 0-2-1.5-3.5-3.5-5-2 1.5-3.5 3-3.5 5 0 1.5 1 2.5 1 4 0 1.5-1.5 2.5-1.5 4.5A3.5 3.5 0 0 0 8.5 14z" />
+  </svg>
+);
+
+export const ClipboardIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <path d="M9 10h6" />
+    <path d="M9 14h6" />
+  </svg>
+);
