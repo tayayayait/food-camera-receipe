@@ -1,68 +1,55 @@
 import React from 'react';
-import { CameraIcon, SparklesIcon, PlusIcon, BookOpenIcon } from './icons';
-import { useLanguage } from '../context/LanguageContext';
 
-interface BottomToolbarProps {
-  onOpenCamera: () => void;
-  onSuggestRecipes: () => void;
-  onAddIngredient: () => void;
-  onOpenJournal: () => void;
+interface ToolbarAction {
+  key: string;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  active?: boolean;
 }
 
-const BottomToolbar: React.FC<BottomToolbarProps> = ({
-  onOpenCamera,
-  onSuggestRecipes,
-  onAddIngredient,
-  onOpenJournal,
-}) => {
-  const { t } = useLanguage();
+interface BottomToolbarProps {
+  actions: ToolbarAction[];
+}
 
-  const actions = [
-    {
-      label: t('toolbarScan'),
-      description: t('toolbarScanHint'),
-      icon: <CameraIcon />, 
-      onClick: onOpenCamera,
-    },
-    {
-      label: t('toolbarSuggest'),
-      description: t('toolbarSuggestHint'),
-      icon: <SparklesIcon />, 
-      onClick: onSuggestRecipes,
-    },
-    {
-      label: t('toolbarAdd'),
-      description: t('toolbarAddHint'),
-      icon: <PlusIcon />, 
-      onClick: onAddIngredient,
-    },
-    {
-      label: t('toolbarJournal'),
-      description: t('toolbarJournalHint'),
-      icon: <BookOpenIcon />, 
-      onClick: onOpenJournal,
-    },
-  ];
+const BottomToolbar: React.FC<BottomToolbarProps> = ({ actions }) => {
+  if (!actions.length) {
+    return null;
+  }
 
   return (
     <nav className="fixed inset-x-4 bottom-6 z-40">
-      <div className="rounded-3xl bg-white/95 backdrop-blur shadow-2xl border border-gray-200 px-3 py-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {actions.map(action => (
-          <button
-            key={action.label}
-            type="button"
-            onClick={action.onClick}
-            className="group flex items-center gap-3 rounded-2xl px-3 py-3 transition hover:bg-gray-100"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gray-100 text-brand-blue group-hover:bg-brand-blue group-hover:text-white transition">
-              {action.icon}
-            </span>
-            <span className="flex flex-col items-start">
-              <span className="text-sm font-semibold text-gray-800">{action.label}</span>
-              <span className="text-xs text-gray-500">{action.description}</span>
-            </span>
-          </button>
-        ))}
+      <div className="rounded-3xl border border-[#7CB7FF]/30 bg-[#E2F0FF]/90 backdrop-blur-xl px-4 py-3 shadow-[0_18px_40px_rgba(124,183,255,0.35)]">
+        <div className="grid grid-cols-4 gap-3">
+          {actions.map(action => (
+            <button
+              key={action.key}
+              type="button"
+              onClick={action.onClick}
+              aria-pressed={action.active}
+              className={`group flex flex-col items-center gap-2 rounded-2xl px-3 py-3 transition text-center ${
+                action.active
+                  ? 'bg-white shadow-lg shadow-[#7CB7FF]/30'
+                  : 'bg-white/40 hover:bg-white/70'
+              }`}
+            >
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl transition ${
+                  action.active
+                    ? 'bg-[#7CB7FF] text-white'
+                    : 'bg-[#EBF5FF] text-[#2A3B5F] group-hover:bg-[#7CB7FF]/90 group-hover:text-white'
+                }`}
+              >
+                {action.icon}
+              </span>
+              <span className={`text-sm font-semibold ${action.active ? 'text-[#1C2B4B]' : 'text-[#1C2B4B]/80'}`}>
+                {action.label}
+              </span>
+              <span className="text-[11px] text-[#1C2B4B]/60 leading-tight">{action.description}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </nav>
   );

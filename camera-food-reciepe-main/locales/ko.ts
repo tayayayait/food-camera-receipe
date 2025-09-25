@@ -4,6 +4,36 @@ export const headerPlan = '계획';
 export const headerCook = '요리';
 export const langToggle = 'English';
 
+export const introHeadline = '냉장플래너';
+export const introBreath = '심호흡하고 시작해볼까요';
+export const introDescription =
+  '냉장고 속 재료를 촬영하거나 선택해서 레시피, 영양 정보, 나만의 기록을 한 번에 관리해보세요.';
+export const introPrimaryAction = '시작하기';
+export const introSecondaryAction = '냉장고 스캔하기';
+
+export const navPantry = '재료';
+export const navRecipes = '레시피';
+export const navNutrition = '영양';
+export const navJournal = '기록';
+
+export const pantryViewTagline = '카테고리별 정리';
+export const recipesViewTagline = '레시피 연구실';
+export const recipesViewTitle = '냉장고 재료로 오늘의 메뉴 찾기';
+export const recipesViewSubtitle =
+  '선택한 재료로 레시피를 추천받고, 필요할 때마다 영양 정보를 함께 확인하세요.';
+export const recipesViewSuggestButton = '추천 새로고침';
+export const recipesViewScanButton = '새로 스캔하기';
+export const recipesViewNutritionButton = '영양 보기';
+export const recipesViewOpenModal = '전체 레시피 보기';
+export const recipesViewEmpty = '재료를 추가하거나 스캔하면 추천을 받을 수 있어요.';
+export const recipesViewMore = '추천 창에서 {{count}}개의 레시피를 더 확인할 수 있어요.';
+export const nutritionEmptyTitle = '아직 영양 요약이 없어요';
+export const nutritionEmptyDescription =
+  '재료를 선택하거나 냉장고를 스캔하면 칼로리와 영양 균형을 바로 계산해드려요.';
+export const nutritionEmptyRecipes = '레시피 추천 열기';
+export const nutritionEmptyScan = '재료 스캔하기';
+export const journalViewTagline = '요리 기록장';
+
 export const heroSectionTagline = '냉장고 속 재료로 만드는 식사 아이디어';
 export const heroSectionTitle = '냉장고를 촬영하거나 재료를 입력하세요. 저녁 메뉴는 저희가 제안해 드릴게요.';
 export const heroSectionDescription = '여러 앱을 오갈 필요 없이 맞춤 레시피 아이디어와 요리 영상을 받아보세요. 당신은 요리에만 집중하세요.';
@@ -103,6 +133,9 @@ export const nutritionCardFat = '지방';
 export const nutritionCardDetectedLabel = '감지된 재료 ({{count}}개)';
 export const nutritionCardServingHint = '1인분 기준';
 export const nutritionCardBreakdown = '단백질 {{protein}} · 탄수화물 {{carbs}} · 지방 {{fat}}';
+export const nutritionCardMacroSplitTitle = '한눈에 보는 영양 비율';
+export const nutritionCardMacroSplitHint = '3대 영양소 비중 (%)';
+export const nutritionCardMacroPercent = '전체 영양소의 {{percent}}%';
 export const nutritionConfidenceHigh = '신뢰도 높음';
 export const nutritionConfidenceMedium = '신뢰도 보통';
 export const nutritionConfidenceLow = '대략적인 추정';

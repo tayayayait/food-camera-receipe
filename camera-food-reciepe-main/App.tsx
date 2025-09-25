@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type {
   PantryItem,
@@ -21,14 +21,61 @@ import BottomToolbar from './components/BottomToolbar';
 import { getRecipeSuggestions } from './services/geminiService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
-import { PlusIcon, SparklesIcon, CameraIcon } from './components/icons';
+import { PlusIcon, SparklesIcon, CameraIcon, BookOpenIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
+
+type ActiveView = 'intro' | 'pantry' | 'recipes' | 'nutrition' | 'journal';
+
+const IntroScreen: React.FC<{ onStart: () => void; onScan: () => void }> = ({ onStart, onScan }) => {
+  const { t } = useLanguage();
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/40 flex items-center justify-center px-6 py-16">
+      <div className="relative max-w-3xl w-full text-center space-y-10">
+        <div className="pointer-events-none absolute -top-28 -left-32 h-64 w-64 rounded-full bg-[#E2F0FF]/70 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 -right-24 h-48 w-48 rounded-full bg-[#7CB7FF]/30 blur-3xl" />
+        <div className="relative inline-block">
+          <span
+            className="absolute inset-0 translate-x-3 translate-y-3 text-[#E2F0FF] blur-[6px] opacity-70 select-none"
+            aria-hidden="true"
+          >
+            {t('introHeadline')}
+          </span>
+          <h1 className="relative text-5xl md:text-7xl font-black tracking-[0.35em] text-[#7CB7FF] drop-shadow-[0_24px_48px_rgba(124,183,255,0.55)] uppercase">
+            {t('introHeadline')}
+          </h1>
+        </div>
+        <p className="text-xs uppercase tracking-[0.55em] text-[#7CB7FF] font-semibold">{t('introBreath')}</p>
+        <p className="text-base md:text-lg text-[#2A3B5F]/80 leading-relaxed max-w-2xl mx-auto">
+          {t('introDescription')}
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <button
+            type="button"
+            onClick={onStart}
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-[#7CB7FF] px-6 py-3 text-white font-semibold shadow-[0_18px_30px_rgba(124,183,255,0.45)] hover:shadow-[0_24px_36px_rgba(124,183,255,0.5)] transition"
+          >
+            <SparklesIcon /> {t('introPrimaryAction')}
+          </button>
+          <button
+            type="button"
+            onClick={onScan}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-[#7CB7FF]/40 bg-white/70 px-6 py-3 text-[#1F2E4C] font-semibold shadow-sm hover:bg-[#EBF5FF] transition"
+          >
+            <CameraIcon /> {t('introSecondaryAction')}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const { language, t } = useLanguage();
   const [items, setItems] = useLocalStorage<PantryItem[]>('pantryItems', []);
   const [recipeMemories, setRecipeMemories] = useLocalStorage<RecipeMemory[]>('recipeMemories', []);
+  const [activeView, setActiveView] = useState<ActiveView>('intro');
   const [isAddItemModalOpen, setAddItemModalOpen] = useState(false);
   const [isRecipeModalOpen, setRecipeModalOpen] = useState(false);
   const [itemToEdit, setItemToEdit] = useState<PantryItem | null>(null);
@@ -42,9 +89,6 @@ const App: React.FC = () => {
   const [highlightedMemoryId, setHighlightedMemoryId] = useState<string | null>(null);
   const [nutritionSummary, setNutritionSummary] = useState<NutritionSummary | null>(null);
   const [nutritionIngredients, setNutritionIngredients] = useState<string[]>([]);
-
-  const pantrySectionRef = useRef<HTMLDivElement | null>(null);
-  const journalSectionRef = useRef<HTMLDivElement | null>(null);
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
@@ -62,6 +106,30 @@ const App: React.FC = () => {
     });
 
     return sanitized;
+  };
+
+  const applyNutritionFrom = (
+    ingredients: string[],
+    options: { alreadySanitized?: boolean; focusView?: boolean } = {}
+  ) => {
+    const { alreadySanitized = false, focusView = false } = options;
+    const list = alreadySanitized ? ingredients : sanitizeIngredients(ingredients);
+
+    if (list.length === 0) {
+      setNutritionSummary(null);
+      setNutritionIngredients([]);
+      if (focusView) {
+        setActiveView(current => (current === 'nutrition' ? 'pantry' : current));
+      }
+      return list;
+    }
+
+    setNutritionIngredients(list);
+    setNutritionSummary(estimateNutritionSummary(list));
+    if (focusView) {
+      setActiveView('nutrition');
+    }
+    return list;
   };
 
   const handleAddItem = (item: Omit<PantryItem, 'id' | 'acquiredAt' | 'status'>) => {
@@ -83,20 +151,13 @@ const App: React.FC = () => {
     setAddItemModalOpen(true);
   };
 
-  const handleScrollToPantry = () => {
-    pantrySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const handleScrollToJournal = () => {
-    journalSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
   const handleToolbarAddIngredient = () => {
-    handleScrollToPantry();
+    setActiveView('pantry');
     handleOpenAddItemModal();
   };
 
   const openCameraModal = () => {
+    setActiveView('recipes');
     setCameraOpen(true);
   };
 
@@ -174,6 +235,7 @@ const App: React.FC = () => {
   const handleClearNutrition = () => {
     setNutritionSummary(null);
     setNutritionIngredients([]);
+    setActiveView('pantry');
   };
 
   const openRecipeModalFor = (ingredients: string[]) => {
@@ -247,6 +309,7 @@ const App: React.FC = () => {
   };
 
   const handleGetRecipes = async () => {
+    setActiveView('recipes');
     const activeItems = items.filter(item => item.status === ItemStatus.Active);
     const allActiveNames = activeItems.map(item => item.name);
     const topIngredients = activeItems
@@ -254,7 +317,9 @@ const App: React.FC = () => {
       .slice(0, 8)
       .map(item => item.name);
 
-    if (topIngredients.length === 0) {
+    const sanitizedTopIngredients = applyNutritionFrom(topIngredients, { focusView: false });
+
+    if (sanitizedTopIngredients.length === 0) {
       setSelectedIngredients([]);
       setRecipes([]);
       setError(t('errorAddItemsPrompt'));
@@ -262,8 +327,11 @@ const App: React.FC = () => {
       return;
     }
 
-    openRecipeModalFor(topIngredients);
-    await fetchRecipesForIngredients(topIngredients, allActiveNames);
+    openRecipeModalFor(sanitizedTopIngredients);
+    const availableIngredientNames = Array.from(
+      new Set([...sanitizeIngredients(allActiveNames), ...sanitizedTopIngredients])
+    );
+    await fetchRecipesForIngredients(sanitizedTopIngredients, availableIngredientNames);
   };
 
   const handleCameraCapture = async (photo: Blob) => {
@@ -276,14 +344,13 @@ const App: React.FC = () => {
       if (!sanitizedDetectedIngredients || sanitizedDetectedIngredients.length === 0) {
         throw new Error('errorNoIngredientsFound');
       }
-      setNutritionIngredients(sanitizedDetectedIngredients);
-      setNutritionSummary(estimateNutritionSummary(sanitizedDetectedIngredients));
+      applyNutritionFrom(sanitizedDetectedIngredients, { alreadySanitized: true, focusView: true });
       openRecipeModalFor(sanitizedDetectedIngredients);
       const activeIngredientNames = items
         .filter(item => item.status === ItemStatus.Active)
         .map(item => item.name);
       const availableIngredientNames = Array.from(
-        new Set([...activeIngredientNames, ...sanitizedDetectedIngredients])
+        new Set([...sanitizeIngredients(activeIngredientNames), ...sanitizedDetectedIngredients])
       );
       await fetchRecipesForIngredients(sanitizedDetectedIngredients, availableIngredientNames);
     } catch (err) {
@@ -311,14 +378,19 @@ const App: React.FC = () => {
       setRecipes([]);
       setError(t('errorAddItemsPrompt'));
       setRecommendationMode('fridgeFirst');
+      setNutritionSummary(null);
+      setNutritionIngredients([]);
       return;
     }
 
+    applyNutritionFrom(sanitized, { alreadySanitized: true, focusView: true });
     setSelectedIngredients(sanitized);
     const activeIngredientNames = items
       .filter(item => item.status === ItemStatus.Active)
       .map(item => item.name);
-    const availableIngredientNames = Array.from(new Set([...activeIngredientNames, ...sanitized]));
+    const availableIngredientNames = Array.from(
+      new Set([...sanitizeIngredients(activeIngredientNames), ...sanitized])
+    );
 
     await fetchRecipesForIngredients(sanitized, availableIngredientNames);
   };
@@ -328,118 +400,246 @@ const App: React.FC = () => {
     setRecommendationMode('fridgeFirst');
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-100 via-white to-gray-100 font-sans text-gray-900">
-      <Header />
-      <main className="container mx-auto p-4 md:p-6 max-w-5xl space-y-6 pb-28">
-        <section className="bg-brand-blue text-white rounded-3xl shadow-2xl overflow-hidden relative">
-          <div className="absolute -bottom-24 -right-16 h-48 w-48 rounded-full bg-brand-orange/30 blur-3xl opacity-60 pointer-events-none" />
-          <div className="p-8 md:p-10 grid gap-6 md:grid-cols-[2fr,1fr] items-center relative">
-            <div className="space-y-5">
-              <p className="text-sm uppercase tracking-[0.4em] text-white/70 font-semibold">
-                {t('heroSectionTagline')}
-              </p>
-              <h2 className="text-3xl md:text-4xl font-bold leading-tight max-w-xl">
-                {t('heroSectionTitle')}
-              </h2>
-              <p className="text-base text-white/85 max-w-xl leading-relaxed">
-                {t('heroSectionDescription')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white">
-                  {t('heroHighlightNutrition')}
-                </span>
-                <span className="inline-flex items-center rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white">
-                  {t('heroHighlightJournal')}
-                </span>
-                <span className="inline-flex items-center rounded-full border border-white/30 bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-white">
-                  {t('heroHighlightSmart')}
-                </span>
+  if (activeView === 'intro') {
+    return <IntroScreen onStart={() => setActiveView('pantry')} onScan={openCameraModal} />;
+  }
+
+  const handleNavigate = (view: Exclude<ActiveView, 'intro'>) => {
+    setActiveView(view);
+  };
+
+  const handleOpenJournalView = () => {
+    setActiveView('journal');
+  };
+
+  const previewRecipes = recipes.slice(0, 3);
+
+  const renderActiveView = () => {
+    switch (activeView) {
+      case 'pantry':
+        return (
+          <section className="rounded-[36px] border border-[#7CB7FF]/30 bg-white/80 backdrop-blur-xl p-6 md:p-10 shadow-[0_28px_60px_rgba(124,183,255,0.25)] space-y-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#7CB7FF]">
+                  {t('pantryViewTagline')}
+                </p>
+                <h2 className="text-3xl font-bold text-[#1C2B4B]">{t('pantrySectionTitle')}</h2>
+                <p className="text-sm text-[#1C2B4B]/70 max-w-xl">{t('pantrySectionDescription')}</p>
               </div>
               <div className="flex flex-wrap gap-3">
                 <button
+                  type="button"
                   onClick={openCameraModal}
-                  className="inline-flex items-center gap-2 bg-white text-brand-blue font-semibold px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#7CB7FF]/40 bg-white/70 px-5 py-2.5 text-sm font-semibold text-[#1C2B4B] shadow-sm hover:bg-[#EBF5FF]"
                 >
-                  <CameraIcon /> {t('heroSectionScanButton')}
+                  <CameraIcon /> {t('pantrySectionScanButton')}
                 </button>
                 <button
-                  onClick={handleGetRecipes}
-                  className="inline-flex items-center gap-2 bg-brand-orange text-white font-semibold px-5 py-2.5 rounded-full shadow-lg hover:shadow-xl transition-all"
+                  type="button"
+                  onClick={() => handleOpenAddItemModal()}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#7CB7FF] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_26px_rgba(124,183,255,0.35)] hover:shadow-[0_20px_32px_rgba(124,183,255,0.45)]"
                 >
-                  <SparklesIcon /> {t('heroSectionSuggestButton')}
+                  <PlusIcon /> {t('pantrySectionAddButton')}
                 </button>
               </div>
             </div>
-            <div className="bg-white/15 backdrop-blur-lg rounded-2xl p-6 space-y-4 text-sm border border-white/20 shadow-inner">
-              <h3 className="text-lg font-semibold text-white">{t('heroSectionHowItWorksTitle')}</h3>
-              <ol className="space-y-3 text-white/80 list-decimal list-inside">
-                <li>{t('heroSectionHowItWorksStep1')}</li>
-                <li>{t('heroSectionHowItWorksStep2')}</li>
-                <li>{t('heroSectionHowItWorksStep3')}</li>
-              </ol>
+            <div className="rounded-3xl border border-[#EBF5FF] bg-[#EBF5FF]/60 p-4 md:p-6">
+              <PantryList
+                items={activeItems}
+                onEdit={handleOpenAddItemModal}
+                onUpdateStatus={handleUpdateItemStatus}
+                onDelete={handleDeleteItem}
+              />
             </div>
-          </div>
-        </section>
-
-        {nutritionSummary && (
-          <NutritionSummaryCard
-            summary={nutritionSummary}
-            ingredients={nutritionIngredients}
-            onClear={handleClearNutrition}
-          />
-        )}
-
-        <section
-          ref={pantrySectionRef}
-          className="bg-white rounded-3xl shadow-xl p-6 md:p-8 space-y-6 border border-gray-100"
-        >
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold text-gray-800">{t('pantrySectionTitle')}</h2>
-              <p className="text-sm text-gray-500">{t('pantrySectionDescription')}</p>
+          </section>
+        );
+      case 'recipes':
+        return (
+          <section className="rounded-[36px] border border-[#7CB7FF]/30 bg-gradient-to-br from-[#EBF5FF]/90 via-white to-[#E2F0FF]/80 p-6 md:p-10 shadow-[0_28px_60px_rgba(124,183,255,0.28)] space-y-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#7CB7FF]">
+                  {t('recipesViewTagline')}
+                </p>
+                <h2 className="text-3xl font-bold text-[#1C2B4B]">{t('recipesViewTitle')}</h2>
+                <p className="text-sm text-[#1C2B4B]/70 max-w-xl">{t('recipesViewSubtitle')}</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleGetRecipes}
+                  className="inline-flex items-center gap-2 rounded-full bg-[#7CB7FF] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_26px_rgba(124,183,255,0.35)] hover:shadow-[0_20px_32px_rgba(124,183,255,0.45)]"
+                >
+                  <SparklesIcon /> {t('recipesViewSuggestButton')}
+                </button>
+                <button
+                  type="button"
+                  onClick={openCameraModal}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#7CB7FF]/40 bg-white/70 px-5 py-2.5 text-sm font-semibold text-[#1C2B4B] shadow-sm hover:bg-[#EBF5FF]"
+                >
+                  <CameraIcon /> {t('recipesViewScanButton')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('nutrition')}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#7CB7FF]/40 bg-white/70 px-5 py-2.5 text-sm font-semibold text-[#1C2B4B] shadow-sm hover:bg-[#EBF5FF]"
+                >
+                  <SparklesIcon /> {t('recipesViewNutritionButton')}
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
+
+            {selectedIngredients.length > 0 && (
+              <div className="rounded-3xl border border-[#7CB7FF]/30 bg-white/75 p-4 md:p-5 flex flex-wrap gap-2">
+                {selectedIngredients.map(ingredient => (
+                  <span
+                    key={ingredient}
+                    className="inline-flex items-center rounded-full bg-[#EBF5FF] px-3 py-1 text-xs font-semibold text-[#1C2B4B]"
+                  >
+                    {ingredient}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {previewRecipes.length > 0 ? (
+              <div className="grid gap-4">
+                {previewRecipes.map(recipe => (
+                  <div
+                    key={recipe.recipeName}
+                    className="rounded-3xl border border-[#7CB7FF]/25 bg-white/85 p-5 shadow-sm hover:shadow-md transition"
+                  >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="space-y-1">
+                        <h3 className="text-xl font-semibold text-[#1C2B4B]">{recipe.recipeName}</h3>
+                        <p className="text-sm text-[#1C2B4B]/70 md:max-w-xl">{recipe.description}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center rounded-full bg-[#EBF5FF] px-3 py-1 text-xs font-semibold text-[#1C2B4B]">
+                          {t('recipeModalMatchedIngredientsLabel')} · {recipe.matchedIngredients.length}
+                        </span>
+                        <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#1C2B4B]/80 border border-[#7CB7FF]/30">
+                          {t('recipeModalMissingIngredientsLabel')} · {recipe.missingIngredients.length}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRecipeModalOpen(true);
+                      }}
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#7CB7FF] px-4 py-2 text-xs font-semibold uppercase tracking-[0.3em] text-white"
+                    >
+                      {t('recipesViewOpenModal')}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-3xl border border-dashed border-[#7CB7FF]/40 bg-white/65 p-8 text-center text-sm text-[#1C2B4B]/70">
+                {t('recipesViewEmpty')}
+              </div>
+            )}
+
+            {recipes.length > previewRecipes.length && (
+              <p className="text-xs text-[#1C2B4B]/60">{t('recipesViewMore', { count: recipes.length - previewRecipes.length })}</p>
+            )}
+          </section>
+        );
+      case 'nutrition':
+        return nutritionSummary ? (
+          <NutritionSummaryCard summary={nutritionSummary} ingredients={nutritionIngredients} onClear={handleClearNutrition} />
+        ) : (
+          <section className="rounded-[36px] border border-dashed border-[#7CB7FF]/40 bg-white/75 p-8 text-center shadow-[0_18px_40px_rgba(124,183,255,0.18)] space-y-4">
+            <h2 className="text-2xl font-semibold text-[#1C2B4B]">{t('nutritionEmptyTitle')}</h2>
+            <p className="text-sm text-[#1C2B4B]/70 max-w-xl mx-auto">{t('nutritionEmptyDescription')}</p>
+            <div className="flex flex-wrap justify-center gap-3">
               <button
+                type="button"
+                onClick={handleGetRecipes}
+                className="inline-flex items-center gap-2 rounded-full bg-[#7CB7FF] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_26px_rgba(124,183,255,0.35)] hover:shadow-[0_20px_32px_rgba(124,183,255,0.45)]"
+              >
+                <SparklesIcon /> {t('nutritionEmptyRecipes')}
+              </button>
+              <button
+                type="button"
                 onClick={openCameraModal}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition"
+                className="inline-flex items-center gap-2 rounded-full border border-[#7CB7FF]/40 bg-white/70 px-5 py-2.5 text-sm font-semibold text-[#1C2B4B] shadow-sm hover:bg-[#EBF5FF]"
               >
-                <CameraIcon /> {t('pantrySectionScanButton')}
-              </button>
-              <button
-                onClick={() => handleOpenAddItemModal()}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-brand-blue text-white rounded-xl shadow-md hover:bg-blue-600 transition"
-              >
-                <PlusIcon /> {t('pantrySectionAddButton')}
+                <CameraIcon /> {t('nutritionEmptyScan')}
               </button>
             </div>
-          </div>
+          </section>
+        );
+      case 'journal':
+        return (
+          <section className="rounded-[36px] border border-[#7CB7FF]/30 bg-white/85 backdrop-blur-xl p-6 md:p-10 shadow-[0_28px_60px_rgba(124,183,255,0.25)] space-y-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.4em] text-[#7CB7FF]">
+                {t('journalViewTagline')}
+              </p>
+              <h2 className="text-3xl font-bold text-[#1C2B4B]">{t('journalSectionTitle')}</h2>
+              <p className="text-sm text-[#1C2B4B]/70">{t('journalSectionDescription')}</p>
+              <p className="text-xs text-[#1C2B4B]/60">{t('journalSectionHint')}</p>
+            </div>
+            <RecipeJournal
+              entries={recipeMemories}
+              onUpdate={handleUpdateRecipeMemory}
+              onDelete={handleDeleteRecipeMemory}
+              onMarkCooked={handleMarkRecipeCooked}
+              highlightedId={highlightedMemoryId}
+            />
+          </section>
+        );
+      default:
+        return null;
+    }
+  };
 
-          <PantryList
-            items={activeItems}
-            onEdit={handleOpenAddItemModal}
-            onUpdateStatus={handleUpdateItemStatus}
-            onDelete={handleDeleteItem}
-          />
-        </section>
+  const toolbarActions = [
+    {
+      key: 'scan',
+      label: t('toolbarScan'),
+      description: t('toolbarScanHint'),
+      icon: <CameraIcon />,
+      onClick: openCameraModal,
+      active: isCameraOpen,
+    },
+    {
+      key: 'ideas',
+      label: t('toolbarSuggest'),
+      description: t('toolbarSuggestHint'),
+      icon: <SparklesIcon />,
+      onClick: handleGetRecipes,
+      active: activeView === 'recipes' && !isCameraOpen,
+    },
+    {
+      key: 'add',
+      label: t('toolbarAdd'),
+      description: t('toolbarAddHint'),
+      icon: <PlusIcon />,
+      onClick: handleToolbarAddIngredient,
+      active: activeView === 'pantry',
+    },
+    {
+      key: 'journal',
+      label: t('toolbarJournal'),
+      description: t('toolbarJournalHint'),
+      icon: <BookOpenIcon />,
+      onClick: handleOpenJournalView,
+      active: activeView === 'journal',
+    },
+  ];
 
-        <div ref={journalSectionRef}>
-          <RecipeJournal
-            entries={recipeMemories}
-            onUpdate={handleUpdateRecipeMemory}
-            onDelete={handleDeleteRecipeMemory}
-            onMarkCooked={handleMarkRecipeCooked}
-            highlightedId={highlightedMemoryId}
-          />
-        </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/30 font-sans text-[#1C2B4B]">
+      <Header activeView={activeView} onNavigate={handleNavigate} />
+      <main className="container mx-auto max-w-5xl px-4 py-6 md:py-10 pb-36 space-y-8">
+        {renderActiveView()}
       </main>
 
-      <BottomToolbar
-        onOpenCamera={openCameraModal}
-        onSuggestRecipes={handleGetRecipes}
-        onAddIngredient={handleToolbarAddIngredient}
-        onOpenJournal={handleScrollToJournal}
-      />
+      <BottomToolbar actions={toolbarActions} />
 
       {isAddItemModalOpen && (
         <AddItemModal
