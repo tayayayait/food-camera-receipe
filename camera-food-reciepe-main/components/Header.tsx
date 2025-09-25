@@ -10,7 +10,7 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ activeView, onNavigate }) => {
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
 
   const navItems: { key: HeaderView; label: string }[] = [
     { key: 'pantry', label: t('navPantry') },
@@ -42,12 +42,6 @@ const Header: React.FC<HeaderProps> = ({ activeView, onNavigate }) => {
               <span className="h-1 w-1 rounded-full bg-[#7CB7FF]/50" />
               <span>{t('headerCook')}</span>
             </div>
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
-              className="rounded-full border border-[#7CB7FF]/40 bg-white/80 px-4 py-2 text-sm font-semibold text-[#1C2B4B] shadow-sm hover:bg-white"
-            >
-              {t('langToggle')}
-            </button>
           </div>
         </div>
         <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">

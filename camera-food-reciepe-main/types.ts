@@ -47,8 +47,6 @@ export interface RecipeRecommendation extends RecipeWithVideos {
     isFullyMatched: boolean;
 }
 
-export type RecommendationMode = 'fridgeFirst' | 'openKitchen';
-
 export interface NutrientProfile {
     calories: number;
     protein: number;

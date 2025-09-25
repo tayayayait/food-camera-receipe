@@ -20,7 +20,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   onOpenDetails,
   highlightedId,
 }) => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -45,12 +45,11 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   }, [entries]);
 
   const formatter = useMemo(() => {
-    const locale = language === 'ko' ? 'ko-KR' : 'en-US';
-    return new Intl.DateTimeFormat(locale, {
+    return new Intl.DateTimeFormat('ko-KR', {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
-  }, [language]);
+  }, []);
 
   const handleSaveNote = (id: string) => {
     const note = draftNotes[id] ?? '';

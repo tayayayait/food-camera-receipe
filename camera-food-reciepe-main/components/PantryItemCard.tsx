@@ -7,11 +7,11 @@ interface PantryItemCardProps {
 }
 
 const PantryItemCard: React.FC<PantryItemCardProps> = ({ item }) => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
 
   const addedDate = item.acquiredAt ? new Date(item.acquiredAt) : null;
   const addedLabel = addedDate && !Number.isNaN(addedDate.getTime())
-    ? addedDate.toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric' })
+    ? addedDate.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
     : t('itemCardRecently');
 
   return (
