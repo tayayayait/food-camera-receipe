@@ -53,6 +53,11 @@ export const pantrySectionScanButton = 'Scan fridge';
 export const pantrySectionNutritionButton = 'Open nutrition';
 export const pantryEmptyTitle = 'No scans yet';
 export const pantryEmptyDescription = 'Capture a photo of your fridge to populate this list.';
+export const pantryManualInputTitle = 'Type your ingredients manually';
+export const pantryManualInputPlaceholder = 'e.g. chicken, garlic, rice';
+export const pantryManualInputHint = 'Separate each ingredient with commas or new lines.';
+export const pantryManualInputSubmit = 'Use these ingredients';
+export const pantryManualInputError = 'Please enter at least one ingredient.';
 
 export const itemCardAdded = 'Detected';
 export const itemCardRecently = 'recently';
