@@ -4,6 +4,36 @@ export const headerPlan = 'Plan';
 export const headerCook = 'Cook';
 export const langToggle = '한국어';
 
+export const introHeadline = '냉장플래너';
+export const introBreath = 'Deep breath in, ideas out';
+export const introDescription =
+  'Turn your fridge into a planning studio. Capture ingredients, switch between recipe ideas and nutrition insights, and cook with confidence.';
+export const introPrimaryAction = 'Start planning';
+export const introSecondaryAction = 'Scan my fridge';
+
+export const navPantry = 'Pantry';
+export const navRecipes = 'Recipes';
+export const navNutrition = 'Nutrition';
+export const navJournal = 'Journal';
+
+export const pantryViewTagline = 'Ingredient control centre';
+export const recipesViewTagline = 'Idea lab';
+export const recipesViewTitle = 'Fresh dishes built around your fridge';
+export const recipesViewSubtitle =
+  'Select ingredients, jump into recipe suggestions, and see your nutrition snapshot whenever you need it.';
+export const recipesViewSuggestButton = 'Refresh ideas';
+export const recipesViewScanButton = 'Scan new photo';
+export const recipesViewNutritionButton = 'View nutrition';
+export const recipesViewOpenModal = 'OPEN RECIPE LIST';
+export const recipesViewEmpty = 'Add or scan ingredients to unlock smart recipe matches.';
+export const recipesViewMore = 'Plus {{count}} more recipes waiting inside the suggestions panel.';
+export const nutritionEmptyTitle = 'No nutrition snapshot yet';
+export const nutritionEmptyDescription =
+  'Scan your fridge or choose a few ingredients to generate a calorie and macro estimate instantly.';
+export const nutritionEmptyRecipes = 'Open recipe ideas';
+export const nutritionEmptyScan = 'Scan ingredients';
+export const journalViewTagline = 'Memory vault';
+
 export const heroSectionTagline = 'Fridge-friendly meal ideas';
 export const heroSectionTitle = "Snap your fridge or type your ingredients. We'll handle the dinner inspiration.";
 export const heroSectionDescription = "Get tailored recipe ideas and cooking videos without juggling multiple apps. You focus on cooking—we'll find what fits your kitchen.";
@@ -103,6 +133,9 @@ export const nutritionCardFat = 'Fat';
 export const nutritionCardDetectedLabel = 'Detected ingredients ({{count}})';
 export const nutritionCardServingHint = '1 serving estimate';
 export const nutritionCardBreakdown = 'P: {{protein}} · C: {{carbs}} · F: {{fat}}';
+export const nutritionCardMacroSplitTitle = 'Macro balance at a glance';
+export const nutritionCardMacroSplitHint = 'Percent of total macros';
+export const nutritionCardMacroPercent = '{{percent}}% of macros';
 export const nutritionConfidenceHigh = 'High confidence';
 export const nutritionConfidenceMedium = 'Medium confidence';
 export const nutritionConfidenceLow = 'Estimated';
