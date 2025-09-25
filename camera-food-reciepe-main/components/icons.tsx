@@ -122,3 +122,19 @@ export const ClipboardIcon: React.FC = () => (
     <path d="M9 14h6" />
   </svg>
 );
+
+export const PulseIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-5 w-5"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M2 12h3l2 7 4-16 3 9h4" />
+    <path d="M20 12h2" />
+  </svg>
+);

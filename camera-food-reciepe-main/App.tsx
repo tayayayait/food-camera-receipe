@@ -7,10 +7,10 @@ import type {
   RecipeWithVideos,
   RecipeMemory,
   NutritionSummary,
+  NutritionContext,
 } from './types';
-import { ItemStatus, type RecommendationMode } from './types';
+import { Category, ItemStatus, type RecommendationMode } from './types';
 import { v4 as uuidv4 } from 'uuid';
-import AddItemModal from './components/AddItemModal';
 import PantryList from './components/PantryList';
 import Header from './components/Header';
 import RecipeModal from './components/RecipeModal';
@@ -18,10 +18,11 @@ import CameraCapture from './components/CameraCapture';
 import RecipeJournal from './components/RecipeJournal';
 import NutritionSummaryCard from './components/NutritionSummaryCard';
 import BottomToolbar from './components/BottomToolbar';
+import RecipeExperienceModal from './components/RecipeExperienceModal';
 import { getRecipeSuggestions } from './services/geminiService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
-import { PlusIcon, SparklesIcon, CameraIcon, BookOpenIcon } from './components/icons';
+import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
 
@@ -76,9 +77,7 @@ const App: React.FC = () => {
   const [items, setItems] = useLocalStorage<PantryItem[]>('pantryItems', []);
   const [recipeMemories, setRecipeMemories] = useLocalStorage<RecipeMemory[]>('recipeMemories', []);
   const [activeView, setActiveView] = useState<ActiveView>('intro');
-  const [isAddItemModalOpen, setAddItemModalOpen] = useState(false);
   const [isRecipeModalOpen, setRecipeModalOpen] = useState(false);
-  const [itemToEdit, setItemToEdit] = useState<PantryItem | null>(null);
   const [recipes, setRecipes] = useState<RecipeRecommendation[]>([]);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,6 +88,8 @@ const App: React.FC = () => {
   const [highlightedMemoryId, setHighlightedMemoryId] = useState<string | null>(null);
   const [nutritionSummary, setNutritionSummary] = useState<NutritionSummary | null>(null);
   const [nutritionIngredients, setNutritionIngredients] = useState<string[]>([]);
+  const [activeMemoryForCooking, setActiveMemoryForCooking] = useState<RecipeMemory | null>(null);
+  const [nutritionContext, setNutritionContext] = useState<NutritionContext | null>(null);
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
@@ -108,16 +109,82 @@ const App: React.FC = () => {
     return sanitized;
   };
 
+  const categoryKeywords: Record<Category, string[]> = {
+    [Category.Vegetable]: [
+      'lettuce',
+      'spinach',
+      'cabbage',
+      'broccoli',
+      'kale',
+      'pepper',
+      'onion',
+      'garlic',
+      'cucumber',
+      'carrot',
+      'mushroom',
+      'herb',
+    ],
+    [Category.Fruit]: ['apple', 'banana', 'berry', 'orange', 'pear', 'tomato', 'grape', 'melon', 'peach'],
+    [Category.Meat]: ['beef', 'pork', 'chicken', 'duck', 'lamb', 'steak', 'ham', 'bacon', 'salmon', 'fish', 'shrimp'],
+    [Category.Dairy]: ['milk', 'cheese', 'yogurt', 'butter', 'cream'],
+    [Category.Pantry]: ['rice', 'pasta', 'noodle', 'flour', 'bean', 'lentil', 'oil', 'sauce', 'spice'],
+    [Category.Other]: [],
+  };
+
+  const categorizeIngredient = (ingredient: string): Category => {
+    const name = normalizeIngredientName(ingredient);
+    for (const [category, keywords] of Object.entries(categoryKeywords) as [Category, string[]][]) {
+      if (keywords.some(keyword => name.includes(keyword))) {
+        return category;
+      }
+    }
+    if (name.includes('egg')) return Category.Dairy;
+    if (name.includes('tofu')) return Category.Pantry;
+    return Category.Other;
+  };
+
+  const buildDetectedItems = (ingredients: string[]): PantryItem[] => {
+    const timestamp = new Date().toISOString();
+    return ingredients.map(ingredient => ({
+      id: uuidv4(),
+      name: ingredient,
+      category: categorizeIngredient(ingredient),
+      acquiredAt: timestamp,
+      status: ItemStatus.Active,
+    }));
+  };
+
+  const commitDetectedIngredients = (ingredients: string[]) => {
+    setItems(buildDetectedItems(ingredients));
+  };
+
+  useEffect(() => {
+    setItems(current => {
+      if (!current.length) {
+        return current;
+      }
+      const sanitized = sanitizeIngredients(current.map(item => item.name));
+      const requiresMigration =
+        sanitized.length !== current.length || current.some(item => item.status !== ItemStatus.Active);
+      return requiresMigration ? buildDetectedItems(sanitized) : current;
+    });
+  }, []);
+
   const applyNutritionFrom = (
     ingredients: string[],
-    options: { alreadySanitized?: boolean; focusView?: boolean } = {}
+    options: {
+      alreadySanitized?: boolean;
+      focusView?: boolean;
+      context?: NutritionContext | null;
+    } = {}
   ) => {
-    const { alreadySanitized = false, focusView = false } = options;
+    const { alreadySanitized = false, focusView = false, context = null } = options;
     const list = alreadySanitized ? ingredients : sanitizeIngredients(ingredients);
 
     if (list.length === 0) {
       setNutritionSummary(null);
       setNutritionIngredients([]);
+      setNutritionContext(null);
       if (focusView) {
         setActiveView(current => (current === 'nutrition' ? 'pantry' : current));
       }
@@ -126,47 +193,16 @@ const App: React.FC = () => {
 
     setNutritionIngredients(list);
     setNutritionSummary(estimateNutritionSummary(list));
+    setNutritionContext(context);
     if (focusView) {
       setActiveView('nutrition');
     }
     return list;
   };
 
-  const handleAddItem = (item: Omit<PantryItem, 'id' | 'acquiredAt' | 'status'>) => {
-    const newItem: PantryItem = {
-      ...item,
-      id: uuidv4(),
-      acquiredAt: new Date().toISOString(),
-      status: ItemStatus.Active,
-    };
-    setItems([...items, newItem]);
-  };
-
-  const handleEditItem = (updatedItem: PantryItem) => {
-    setItems(items.map(item => (item.id === updatedItem.id ? updatedItem : item)));
-  };
-
-  const handleOpenAddItemModal = (item: PantryItem | null = null) => {
-    setItemToEdit(item);
-    setAddItemModalOpen(true);
-  };
-
-  const handleToolbarAddIngredient = () => {
-    setActiveView('pantry');
-    handleOpenAddItemModal();
-  };
-
   const openCameraModal = () => {
     setActiveView('recipes');
     setCameraOpen(true);
-  };
-
-  const handleUpdateItemStatus = (id: string, status: ItemStatus) => {
-    setItems(items.map(item => (item.id === id ? { ...item, status } : item)));
-  };
-
-  const handleDeleteItem = (id: string) => {
-    setItems(items.filter(item => item.id !== id));
   };
 
   const handleSaveRecipeMemory = (recipe: RecipeRecommendation) => {
@@ -176,6 +212,22 @@ const App: React.FC = () => {
     );
 
     if (existing) {
+      const needsEnrichment =
+        !existing.ingredients?.length || !existing.instructions?.length || !existing.videos?.length;
+      if (needsEnrichment) {
+        setRecipeMemories(current =>
+          current.map(memory =>
+            memory.id === existing.id
+              ? {
+                  ...memory,
+                  ingredients: recipe.ingredientsNeeded,
+                  instructions: recipe.instructions,
+                  videos: recipe.videos,
+                }
+              : memory
+          )
+        );
+      }
       setHighlightedMemoryId(existing.id);
       return { id: existing.id, isNew: false } as const;
     }
@@ -190,6 +242,9 @@ const App: React.FC = () => {
       missingIngredients: recipe.missingIngredients,
       lastCookedAt: null,
       timesCooked: 0,
+      ingredients: recipe.ingredientsNeeded,
+      instructions: recipe.instructions,
+      videos: recipe.videos,
     };
 
     setRecipeMemories(current => [newMemory, ...current]);
@@ -209,18 +264,37 @@ const App: React.FC = () => {
   };
 
   const handleMarkRecipeCooked = (id: string) => {
+    let updatedEntry: RecipeMemory | null = null;
     setRecipeMemories(current =>
-      current.map(memory =>
-        memory.id === id
-          ? {
-              ...memory,
-              timesCooked: memory.timesCooked + 1,
-              lastCookedAt: new Date().toISOString(),
-            }
-          : memory
-      )
+      current.map(memory => {
+        if (memory.id !== id) {
+          return memory;
+        }
+        const enriched: RecipeMemory = {
+          ...memory,
+          timesCooked: memory.timesCooked + 1,
+          lastCookedAt: new Date().toISOString(),
+        };
+        updatedEntry = enriched;
+        return enriched;
+      })
     );
+    if (updatedEntry) {
+      setActiveMemoryForCooking(prev => (prev?.id === id ? updatedEntry : prev));
+    }
     setHighlightedMemoryId(id);
+  };
+
+  const handleOpenMemoryForCooking = (id: string) => {
+    const memory = recipeMemories.find(entry => entry.id === id);
+    if (!memory) {
+      return;
+    }
+    setActiveMemoryForCooking(memory);
+  };
+
+  const handleCloseMemoryForCooking = () => {
+    setActiveMemoryForCooking(null);
   };
 
   useEffect(() => {
@@ -235,7 +309,8 @@ const App: React.FC = () => {
   const handleClearNutrition = () => {
     setNutritionSummary(null);
     setNutritionIngredients([]);
-    setActiveView('pantry');
+    setNutritionContext(null);
+    setActiveView('recipes');
   };
 
   const openRecipeModalFor = (ingredients: string[]) => {
@@ -310,27 +385,34 @@ const App: React.FC = () => {
 
   const handleGetRecipes = async () => {
     setActiveView('recipes');
-    const activeItems = items.filter(item => item.status === ItemStatus.Active);
-    const allActiveNames = activeItems.map(item => item.name);
-    const topIngredients = activeItems
-      .sort((a, b) => a.name.localeCompare(b.name, language))
-      .slice(0, 8)
-      .map(item => item.name);
+    const activeItems = items;
+    if (activeItems.length === 0) {
+      setSelectedIngredients([]);
+      setRecipes([]);
+      setError(t('errorScanFirst'));
+      setRecipeModalOpen(true);
+      return;
+    }
 
-    const sanitizedTopIngredients = applyNutritionFrom(topIngredients, { focusView: false });
+    const sortedNames = [...activeItems]
+      .sort((a, b) => a.name.localeCompare(b.name, language))
+      .map(item => item.name);
+    const topIngredients = sortedNames.slice(0, 8);
+    const sanitizedTopIngredients = applyNutritionFrom(topIngredients, {
+      focusView: false,
+      context: { type: 'scan' },
+    });
 
     if (sanitizedTopIngredients.length === 0) {
       setSelectedIngredients([]);
       setRecipes([]);
-      setError(t('errorAddItemsPrompt'));
+      setError(t('errorScanFirst'));
       setRecipeModalOpen(true);
       return;
     }
 
     openRecipeModalFor(sanitizedTopIngredients);
-    const availableIngredientNames = Array.from(
-      new Set([...sanitizeIngredients(allActiveNames), ...sanitizedTopIngredients])
-    );
+    const availableIngredientNames = Array.from(new Set([...sortedNames, ...sanitizedTopIngredients]));
     await fetchRecipesForIngredients(sanitizedTopIngredients, availableIngredientNames);
   };
 
@@ -344,15 +426,14 @@ const App: React.FC = () => {
       if (!sanitizedDetectedIngredients || sanitizedDetectedIngredients.length === 0) {
         throw new Error('errorNoIngredientsFound');
       }
-      applyNutritionFrom(sanitizedDetectedIngredients, { alreadySanitized: true, focusView: true });
+      commitDetectedIngredients(sanitizedDetectedIngredients);
+      applyNutritionFrom(sanitizedDetectedIngredients, {
+        alreadySanitized: true,
+        focusView: true,
+        context: { type: 'scan' },
+      });
       openRecipeModalFor(sanitizedDetectedIngredients);
-      const activeIngredientNames = items
-        .filter(item => item.status === ItemStatus.Active)
-        .map(item => item.name);
-      const availableIngredientNames = Array.from(
-        new Set([...sanitizeIngredients(activeIngredientNames), ...sanitizedDetectedIngredients])
-      );
-      await fetchRecipesForIngredients(sanitizedDetectedIngredients, availableIngredientNames);
+      await fetchRecipesForIngredients(sanitizedDetectedIngredients, sanitizedDetectedIngredients);
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorPhotoAnalysis';
       setSelectedIngredients([]);
@@ -362,37 +443,45 @@ const App: React.FC = () => {
       setRecommendationMode('fridgeFirst');
       setNutritionSummary(null);
       setNutritionIngredients([]);
+      setNutritionContext(null);
     } finally {
       setIsAnalyzingPhoto(false);
       setCameraOpen(false);
     }
   };
 
-  const activeItems = items.filter(item => item.status === ItemStatus.Active);
+  const activeItems = items;
 
-  const handleUpdateIngredientsFromModal = async (rawIngredients: string[]) => {
-    const sanitized = sanitizeIngredients(rawIngredients);
+  const handleViewRecipeNutrition = (recipe: RecipeRecommendation) => {
+    const sanitized = applyNutritionFrom(recipe.ingredientsNeeded, {
+      focusView: true,
+      context: { type: 'recipe', label: recipe.recipeName },
+    });
+    if (sanitized.length > 0) {
+      setRecipeModalOpen(false);
+    }
+  };
 
-    if (sanitized.length === 0) {
-      setSelectedIngredients([]);
-      setRecipes([]);
-      setError(t('errorAddItemsPrompt'));
-      setRecommendationMode('fridgeFirst');
-      setNutritionSummary(null);
-      setNutritionIngredients([]);
+  const resolveMemoryIngredients = (memory: RecipeMemory) => {
+    if (memory.ingredients?.length) {
+      return memory.ingredients;
+    }
+    const combined = [
+      ...(memory.matchedIngredients ?? []),
+      ...(memory.missingIngredients ?? []),
+    ].filter(Boolean);
+    return combined.length ? combined : [];
+  };
+
+  const handleViewMemoryNutrition = (memory: RecipeMemory) => {
+    const sourceIngredients = resolveMemoryIngredients(memory);
+    if (!sourceIngredients.length) {
       return;
     }
-
-    applyNutritionFrom(sanitized, { alreadySanitized: true, focusView: true });
-    setSelectedIngredients(sanitized);
-    const activeIngredientNames = items
-      .filter(item => item.status === ItemStatus.Active)
-      .map(item => item.name);
-    const availableIngredientNames = Array.from(
-      new Set([...sanitizeIngredients(activeIngredientNames), ...sanitized])
-    );
-
-    await fetchRecipesForIngredients(sanitized, availableIngredientNames);
+    applyNutritionFrom(sourceIngredients, {
+      focusView: true,
+      context: { type: 'memory', label: memory.recipeName },
+    });
   };
 
   const handleCloseRecipeModal = () => {
@@ -435,22 +524,19 @@ const App: React.FC = () => {
                 >
                   <CameraIcon /> {t('pantrySectionScanButton')}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => handleOpenAddItemModal()}
-                  className="inline-flex items-center gap-2 rounded-full bg-[#7CB7FF] px-5 py-2.5 text-sm font-semibold text-white shadow-[0_16px_26px_rgba(124,183,255,0.35)] hover:shadow-[0_20px_32px_rgba(124,183,255,0.45)]"
-                >
-                  <PlusIcon /> {t('pantrySectionAddButton')}
-                </button>
+                {nutritionSummary && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveView('nutrition')}
+                    className="inline-flex items-center gap-2 rounded-full border border-[#7CB7FF]/40 bg-white/70 px-5 py-2.5 text-sm font-semibold text-[#1C2B4B] shadow-sm hover:bg-[#EBF5FF]"
+                  >
+                    <SparklesIcon /> {t('pantrySectionNutritionButton')}
+                  </button>
+                )}
               </div>
             </div>
             <div className="rounded-3xl border border-[#EBF5FF] bg-[#EBF5FF]/60 p-4 md:p-6">
-              <PantryList
-                items={activeItems}
-                onEdit={handleOpenAddItemModal}
-                onUpdateStatus={handleUpdateItemStatus}
-                onDelete={handleDeleteItem}
-              />
+              <PantryList items={activeItems} />
             </div>
           </section>
         );
@@ -549,7 +635,12 @@ const App: React.FC = () => {
         );
       case 'nutrition':
         return nutritionSummary ? (
-          <NutritionSummaryCard summary={nutritionSummary} ingredients={nutritionIngredients} onClear={handleClearNutrition} />
+          <NutritionSummaryCard
+            summary={nutritionSummary}
+            ingredients={nutritionIngredients}
+            context={nutritionContext}
+            onClear={handleClearNutrition}
+          />
         ) : (
           <section className="rounded-[36px] border border-dashed border-[#7CB7FF]/40 bg-white/75 p-8 text-center shadow-[0_18px_40px_rgba(124,183,255,0.18)] space-y-4">
             <h2 className="text-2xl font-semibold text-[#1C2B4B]">{t('nutritionEmptyTitle')}</h2>
@@ -588,6 +679,7 @@ const App: React.FC = () => {
               onUpdate={handleUpdateRecipeMemory}
               onDelete={handleDeleteRecipeMemory}
               onMarkCooked={handleMarkRecipeCooked}
+              onOpenDetails={handleOpenMemoryForCooking}
               highlightedId={highlightedMemoryId}
             />
           </section>
@@ -615,12 +707,12 @@ const App: React.FC = () => {
       active: activeView === 'recipes' && !isCameraOpen,
     },
     {
-      key: 'add',
-      label: t('toolbarAdd'),
-      description: t('toolbarAddHint'),
-      icon: <PlusIcon />,
-      onClick: handleToolbarAddIngredient,
-      active: activeView === 'pantry',
+      key: 'nutrition',
+      label: t('toolbarNutrition'),
+      description: t('toolbarNutritionHint'),
+      icon: <PulseIcon />,
+      onClick: () => setActiveView('nutrition'),
+      active: activeView === 'nutrition',
     },
     {
       key: 'journal',
@@ -641,15 +733,6 @@ const App: React.FC = () => {
 
       <BottomToolbar actions={toolbarActions} />
 
-      {isAddItemModalOpen && (
-        <AddItemModal
-          isOpen={isAddItemModalOpen}
-          onClose={() => setAddItemModalOpen(false)}
-          onSave={itemToEdit ? handleEditItem : handleAddItem}
-          itemToEdit={itemToEdit}
-        />
-      )}
-
       {isRecipeModalOpen && (
         <RecipeModal
           isOpen={isRecipeModalOpen}
@@ -660,9 +743,11 @@ const App: React.FC = () => {
           ingredients={selectedIngredients}
           recommendationMode={recommendationMode}
           onChangeRecommendationMode={setRecommendationMode}
-          onUpdateIngredients={handleUpdateIngredientsFromModal}
           onSaveRecipeToJournal={handleSaveRecipeMemory}
           savedRecipeNames={recipeMemories.map(memory => memory.recipeName)}
+          nutritionSummary={nutritionSummary}
+          nutritionContext={nutritionContext}
+          onViewRecipeNutrition={handleViewRecipeNutrition}
         />
       )}
 
@@ -672,6 +757,15 @@ const App: React.FC = () => {
           onClose={() => setCameraOpen(false)}
           onCapture={handleCameraCapture}
           isProcessing={isAnalyzingPhoto || isLoadingRecipes}
+        />
+      )}
+
+      {activeMemoryForCooking && (
+        <RecipeExperienceModal
+          entry={activeMemoryForCooking}
+          onClose={handleCloseMemoryForCooking}
+          onCook={() => handleMarkRecipeCooked(activeMemoryForCooking.id)}
+          onViewNutrition={() => handleViewMemoryNutrition(activeMemoryForCooking)}
         />
       )}
     </div>

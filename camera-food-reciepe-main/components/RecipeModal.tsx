@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import type { RecipeRecommendation, RecommendationMode } from '../types';
-import { UtensilsIcon } from './icons';
+import type {
+  RecipeRecommendation,
+  RecommendationMode,
+  NutritionSummary,
+  NutritionContext,
+} from '../types';
+import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
-
-const parseIngredientsInput = (text: string) =>
-  text
-    .split(/[\n,]/)
-    .map(part => part.trim())
-    .filter(Boolean);
+import { formatMacro } from '../services/nutritionService';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -58,9 +58,11 @@ interface RecipeModalProps {
   ingredients: string[];
   recommendationMode: RecommendationMode;
   onChangeRecommendationMode: (mode: RecommendationMode) => void;
-  onUpdateIngredients: (ingredients: string[]) => void | Promise<void>;
   onSaveRecipeToJournal: (recipe: RecipeRecommendation) => { id: string; isNew: boolean };
   savedRecipeNames: string[];
+  nutritionSummary?: NutritionSummary | null;
+  nutritionContext?: NutritionContext | null;
+  onViewRecipeNutrition: (recipe: RecipeRecommendation) => void;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -81,9 +83,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   ingredients,
   recommendationMode,
   onChangeRecommendationMode,
-  onUpdateIngredients,
   onSaveRecipeToJournal,
   savedRecipeNames,
+  nutritionSummary,
+  nutritionContext,
+  onViewRecipeNutrition,
 }) => {
   const { language, t } = useLanguage();
   if (!isOpen) return null;
@@ -96,12 +100,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const noMatchesWithFilter =
     !isLoading && !error && filteredRecipes.length === 0 && recipes.length > 0 && recommendationMode === 'fridgeFirst';
 
-  const [ingredientsText, setIngredientsText] = useState(() => ingredients.join(', '));
   const [justSavedState, setJustSavedState] = useState<{ name: string; isNew: boolean } | null>(null);
-
-  useEffect(() => {
-    setIngredientsText(ingredients.join(', '));
-  }, [ingredients]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -118,11 +117,18 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     return () => window.clearTimeout(timeout);
   }, [justSavedState]);
 
-  const previewIngredients = useMemo(() => parseIngredientsInput(ingredientsText), [ingredientsText]);
   const savedRecipeNamesSet = useMemo(
     () => new Set(savedRecipeNames.map(name => name.trim().toLowerCase())),
     [savedRecipeNames]
   );
+
+  const nutritionContextLabel = nutritionContext
+    ? nutritionContext.type === 'scan'
+      ? t('nutritionContextScan')
+      : nutritionContext.type === 'recipe'
+        ? t('nutritionContextRecipe', { name: nutritionContext.label })
+        : t('nutritionContextMemory', { name: nutritionContext.label })
+    : null;
 
   const recipeSearchProviders = useMemo(
     () =>
@@ -164,11 +170,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     [language]
   );
 
-  const handleSubmitIngredients = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    await onUpdateIngredients(previewIngredients);
-  };
-
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
     const result = onSaveRecipeToJournal(recipe);
     setJustSavedState({ name: recipe.recipeName, isNew: result.isNew });
@@ -194,45 +195,77 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         </div>
 
         <div className="p-6 md:p-8 overflow-y-auto flex-grow space-y-6">
-          <form onSubmit={handleSubmitIngredients} className="bg-white border border-gray-200 rounded-2xl p-4 space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="ingredients-editor" className="text-sm font-semibold text-gray-700">
-                {t('recipeModalEditIngredientsLabel')}
-              </label>
-              <textarea
-                id="ingredients-editor"
-                value={ingredientsText}
-                onChange={event => setIngredientsText(event.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
-                placeholder={t('recipeModalEditIngredientsPlaceholder')}
-              />
-              <p className="text-xs text-gray-500">{t('recipeModalEditIngredientsHint')}</p>
+          {nutritionSummary && (
+            <div className="bg-brand-blue/5 border border-brand-blue/20 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-brand-blue shadow-sm">
+                    <PulseIcon />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-brand-blue">
+                      {t('recipeModalNutritionSnapshotTitle')}
+                    </p>
+                    <p className="text-xs text-brand-blue/70">
+                      {t('recipeModalNutritionSnapshotSubtitle', { count: nutritionSummary.detectedCount })}
+                    </p>
+                    {nutritionContextLabel && (
+                      <p className="text-xs text-brand-blue/60">
+                        {nutritionContextLabel}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 flex-1">
+                  {[
+                    { label: t('nutritionCardCalories'), value: formatMacro(nutritionSummary.total.calories, 'kcal') },
+                    { label: t('nutritionCardProtein'), value: formatMacro(nutritionSummary.total.protein, 'g') },
+                    { label: t('nutritionCardCarbs'), value: formatMacro(nutritionSummary.total.carbs, 'g') },
+                    { label: t('nutritionCardFat'), value: formatMacro(nutritionSummary.total.fat, 'g') },
+                  ].map(stat => (
+                    <div
+                      key={stat.label}
+                      className="rounded-xl bg-white/70 px-3 py-2 text-center shadow-sm border border-white/40"
+                    >
+                      <p className="text-[11px] uppercase tracking-wide text-brand-blue/60">{stat.label}</p>
+                      <p className="text-sm font-semibold text-brand-blue">{stat.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-brand-blue/60">
+                {t('recipeModalNutritionSnapshotHint')}
+              </p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {previewIngredients.length > 0 ? (
-                previewIngredients.map(ingredient => (
+          )}
+
+          {ingredients.length > 0 && (
+            <section className="bg-white border border-gray-200 rounded-2xl p-4 space-y-3">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-gray-700">
+                    {t('recipeModalDetectedIngredientsTitle')}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {t('recipeModalDetectedIngredientsDescription')}
+                  </p>
+                </div>
+                <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-brand-blue/70">
+                  {t('nutritionCardDetectedLabel', { count: ingredients.length })}
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {ingredients.map(ingredient => (
                   <span
-                    key={ingredient}
+                    key={`detected-${ingredient}`}
                     className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-medium text-brand-blue"
                   >
                     {ingredient}
                   </span>
-                ))
-              ) : (
-                <span className="text-xs text-gray-400">{t('recipeModalEditIngredientsEmpty')}</span>
-              )}
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="inline-flex items-center gap-2 rounded-xl bg-brand-orange px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-500 transition disabled:opacity-60"
-                disabled={isLoading || previewIngredients.length === 0}
-              >
-                {isLoading ? t('recipeModalEditIngredientsUpdating') : t('recipeModalEditIngredientsButton')}
-              </button>
-            </div>
-          </form>
+                ))}
+              </div>
+            </section>
+          )}
 
           <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
@@ -437,6 +470,17 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         )}
                       </div>
                     )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-blue/5 border border-brand-blue/15 px-3 py-2">
+                    <p className="text-xs text-brand-blue/70">{t('recipeModalRecipeNutritionHint')}</p>
+                    <button
+                      type="button"
+                      onClick={() => onViewRecipeNutrition(recipe)}
+                      className="inline-flex items-center gap-2 rounded-xl bg-brand-blue text-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-blue-600 transition"
+                    >
+                      <PulseIcon /> {t('recipeModalRecipeNutritionButton')}
+                    </button>
                   </div>
 
                   <div className="space-y-3">
