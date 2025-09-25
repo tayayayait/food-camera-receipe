@@ -2,7 +2,6 @@ export const headerSubtitle = '카메라로 촬영하고, 실제 재료로 식�
 export const headerScan = '스캔';
 export const headerPlan = '계획';
 export const headerCook = '요리';
-export const langToggle = 'English';
 
 export const introHeadline = '냉장플래너';
 export const introBreath = '심호흡하고 시작해볼까요';
@@ -29,7 +28,7 @@ export const recipesViewEmpty = '재료를 스캔하면 맞춤 레시피를 추�
 export const recipesViewMore = '추천 창에서 {{count}}개의 레시피를 더 확인할 수 있어요.';
 export const nutritionEmptyTitle = '아직 영양 요약이 없어요';
 export const nutritionEmptyDescription =
-  '재료를 선택하거나 냉장고를 스캔하면 칼로리와 영양 균형을 바로 계산해드려요.';
+  '레시피를 선택하면 예상 칼로리와 영양 구성을 확인할 수 있어요.';
 export const nutritionEmptyRecipes = '레시피 추천 열기';
 export const nutritionEmptyScan = '재료 스캔하기';
 export const journalViewTagline = '요리 기록장';
@@ -106,13 +105,6 @@ export const recipeModalMatchedIngredientsLabel = '이미 보유';
 export const recipeModalBadgeReady = '바로 요리 가능';
 export const recipeModalBadgeMissing = '{{count}}개 더 필요';
 export const recipeModalSearchProvidersLabel = '다음에서 자세한 레시피 찾기:';
-export const recipeModalModeTitle = '추천 모드';
-export const recipeModalModeDescription = '지금 바로 만들 수 있는 레시피부터, 몇 가지 재료만 추가하면 되는 레시피까지 골라보세요.';
-export const recipeModalModeFridgeFirst = '냉장고 비우기';
-export const recipeModalModeFridgeFirstHint = '가지고 있는 재료만 활용';
-export const recipeModalModeOpenKitchen = '요리 도전';
-export const recipeModalModeOpenKitchenHint = '부족한 재료 포함';
-export const recipeModalNoFridgeMatches = '현재 재료로 바로 만들 수 있는 레시피가 없어요. 다른 모드로 전환해 더 많은 아이디어를 확인해보세요.';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
 
@@ -129,10 +121,10 @@ export const cameraModalUsePhoto = '이 사진 사용하기';
 export const cameraModalAnalyzing = '분석 중...';
 export const cameraModalCapture = '촬영하기';
 
-export const nutritionCardTagline = '자동 영양 추정';
-export const nutritionCardTitle = '사진으로 추정한 영양 균형';
-export const nutritionCardSubtitle = '자주 쓰이는 재료를 기준으로 칼로리와 3대 영양소를 빠르게 계산해드려요.';
-export const nutritionContextScan = '가장 최근 스캔 결과를 기준으로 계산했어요.';
+export const nutritionCardTagline = '선택한 재료 영양 가이드';
+export const nutritionCardTitle = '예상 영양 구성';
+export const nutritionCardSubtitle = '선택한 재료를 기준으로 추정한 칼로리와 3대 영양소를 확인해보세요.';
+export const nutritionContextScan = '최근 인식된 재료를 기준으로 계산했어요.';
 export const nutritionContextRecipe = '{{name}} 레시피에 맞춘 추정치예요.';
 export const nutritionContextMemory = '저장해 둔 요리 “{{name}}”을 기준으로 계산했어요.';
 export const nutritionCardDismiss = '숨기기';

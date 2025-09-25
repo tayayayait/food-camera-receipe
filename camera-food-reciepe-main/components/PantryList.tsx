@@ -18,7 +18,7 @@ const CATEGORY_ORDER: Category[] = [
 ];
 
 const PantryList: React.FC<PantryListProps> = ({ items }) => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
 
   if (items.length === 0) {
     return (
@@ -33,7 +33,7 @@ const PantryList: React.FC<PantryListProps> = ({ items }) => {
     category,
     items: items
       .filter(item => item.category === category)
-      .sort((a, b) => a.name.localeCompare(b.name, language)),
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko')),
   })).filter(group => group.items.length > 0);
 
   return (

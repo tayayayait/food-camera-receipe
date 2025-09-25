@@ -10,7 +10,7 @@ interface CookingLogbookProps {
 }
 
 const CookingLogbook: React.FC<CookingLogbookProps> = ({ logs, onAddLog, onDeleteLog }) => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [recipeName, setRecipeName] = useState('');
@@ -38,18 +38,18 @@ const CookingLogbook: React.FC<CookingLogbookProps> = ({ logs, onAddLog, onDelet
 
   const formatter = useMemo(() => {
     try {
-      return new Intl.DateTimeFormat(language === 'ko' ? 'ko-KR' : 'en-US', {
+      return new Intl.DateTimeFormat('ko-KR', {
         dateStyle: 'medium',
         timeStyle: 'short',
       });
     } catch (error) {
       console.warn('Falling back to default date formatting', error);
-      return new Intl.DateTimeFormat('en-US', {
+      return new Intl.DateTimeFormat('ko-KR', {
         dateStyle: 'medium',
         timeStyle: 'short',
       });
     }
-  }, [language]);
+  }, []);
 
   return (
     <section className="bg-white rounded-3xl shadow-xl p-6 md:p-8 space-y-6">

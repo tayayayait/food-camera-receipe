@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type {
   RecipeRecommendation,
-  RecommendationMode,
   NutritionSummary,
   NutritionContext,
 } from '../types';
@@ -56,8 +55,6 @@ interface RecipeModalProps {
   isLoading: boolean;
   error: string | null;
   ingredients: string[];
-  recommendationMode: RecommendationMode;
-  onChangeRecommendationMode: (mode: RecommendationMode) => void;
   onSaveRecipeToJournal: (recipe: RecipeRecommendation) => { id: string; isNew: boolean };
   savedRecipeNames: string[];
   nutritionSummary?: NutritionSummary | null;
@@ -81,24 +78,14 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   isLoading,
   error,
   ingredients,
-  recommendationMode,
-  onChangeRecommendationMode,
   onSaveRecipeToJournal,
   savedRecipeNames,
   nutritionSummary,
   nutritionContext,
   onViewRecipeNutrition,
 }) => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   if (!isOpen) return null;
-
-  const filteredRecipes =
-    recommendationMode === 'fridgeFirst'
-      ? recipes.filter(recipe => recipe.isFullyMatched)
-      : recipes;
-
-  const noMatchesWithFilter =
-    !isLoading && !error && filteredRecipes.length === 0 && recipes.length > 0 && recommendationMode === 'fridgeFirst';
 
   const [justSavedState, setJustSavedState] = useState<{ name: string; isNew: boolean } | null>(null);
 
@@ -131,43 +118,24 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     : null;
 
   const recipeSearchProviders = useMemo(
-    () =>
-      language === 'ko'
-        ? [
-            {
-              name: '만개의 레시피',
-              buildUrl: (query: string) =>
-                `https://www.10000recipe.com/recipe/list.html?q=${encodeURIComponent(query)}`,
-            },
-            {
-              name: '네이버 레시피',
-              buildUrl: (query: string) =>
-                `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 레시피`)}`,
-            },
-            {
-              name: 'YouTube',
-              buildUrl: (query: string) =>
-                `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} 요리`)}`,
-            },
-          ]
-        : [
-            {
-              name: 'Allrecipes',
-              buildUrl: (query: string) =>
-                `https://www.allrecipes.com/search?q=${encodeURIComponent(query)}`,
-            },
-            {
-              name: 'Serious Eats',
-              buildUrl: (query: string) =>
-                `https://www.seriouseats.com/search?q=${encodeURIComponent(query)}`,
-            },
-            {
-              name: 'YouTube',
-              buildUrl: (query: string) =>
-                `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} recipe`)}`,
-            },
-          ],
-    [language]
+    () => [
+      {
+        name: '만개의 레시피',
+        buildUrl: (query: string) =>
+          `https://www.10000recipe.com/recipe/list.html?q=${encodeURIComponent(query)}`,
+      },
+      {
+        name: '네이버 레시피',
+        buildUrl: (query: string) =>
+          `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 레시피`)}`,
+      },
+      {
+        name: 'YouTube',
+        buildUrl: (query: string) =>
+          `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} 요리`)}`,
+      },
+    ],
+    []
   );
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
@@ -267,47 +235,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
             </section>
           )}
 
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-gray-700">{t('recipeModalModeTitle')}</p>
-              <p className="text-xs text-gray-500">{t('recipeModalModeDescription')}</p>
-            </div>
-            <div className="inline-flex items-stretch rounded-xl bg-gray-100 p-1">
-              <button
-                type="button"
-                onClick={() => onChangeRecommendationMode('fridgeFirst')}
-                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
-                  recommendationMode === 'fridgeFirst'
-                    ? 'bg-white text-brand-blue shadow'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <span className="block text-left">
-                  {t('recipeModalModeFridgeFirst')}
-                  <span className="block text-[11px] font-normal text-gray-500">
-                    {t('recipeModalModeFridgeFirstHint')}
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() => onChangeRecommendationMode('openKitchen')}
-                className={`px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
-                  recommendationMode === 'openKitchen'
-                    ? 'bg-white text-brand-orange shadow'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <span className="block text-left">
-                  {t('recipeModalModeOpenKitchen')}
-                  <span className="block text-[11px] font-normal text-gray-500">
-                    {t('recipeModalModeOpenKitchenHint')}
-                  </span>
-                </span>
-              </button>
-            </div>
-          </div>
-
           {isLoading && (
             <div className="space-y-6">
               <LoadingSkeleton />
@@ -321,9 +248,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
             </div>
           )}
 
-          {!isLoading && !error && filteredRecipes.length > 0 && (
+          {!isLoading && !error && recipes.length > 0 && (
             <div className="space-y-6">
-              {filteredRecipes.map((recipe, index) => {
+              {recipes.map((recipe, index) => {
                 const normalizedName = recipe.recipeName.trim().toLowerCase();
                 const isSaved = savedRecipeNamesSet.has(normalizedName);
                 const isJustSaved = justSavedState?.name === recipe.recipeName;
@@ -516,11 +443,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
             </div>
           )}
 
-          {!isLoading && !error && noMatchesWithFilter && (
-            <p className="text-gray-500 text-center py-10">{t('recipeModalNoFridgeMatches')}</p>
-          )}
-
-          {!isLoading && !error && filteredRecipes.length === 0 && !noMatchesWithFilter && (
+          {!isLoading && !error && recipes.length === 0 && (
             <p className="text-gray-500 text-center py-10">{t('recipeModalNoResults')}</p>
           )}
         </div>

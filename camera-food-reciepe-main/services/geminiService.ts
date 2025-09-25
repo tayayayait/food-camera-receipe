@@ -38,7 +38,7 @@ const recipeSchema = {
     }
 };
 
-export async function getRecipeSuggestions(ingredients: string[], language: 'en' | 'ko'): Promise<Recipe[]> {
+export async function getRecipeSuggestions(ingredients: string[]): Promise<Recipe[]> {
     if (!GEMINI_API_KEY || !ai) {
         throw new Error('error_gemini_api_key');
     }
@@ -46,9 +46,7 @@ export async function getRecipeSuggestions(ingredients: string[], language: 'en'
         return [];
     }
 
-    const prompt = language === 'ko'
-    ? `제 주방에 다음 재료들이 있습니다: ${ingredients.join(', ')}. 이 재료들을 활용하는 레시피 3가지를 추천해 주세요. 각 레시피는 반드시 다음 정보를 포함해야 합니다.\n- 레시피 이름\n- 완성 결과가 훌륭해 보이도록 유도하는 짧고 설레는 설명\n- 제공된 재료 외에 필요할 수 있는 다른 흔한 재료 목록\n- 중학생도 따라 할 수 있을 만큼 간단하고 명확한 문장으로 작성된 단계별 조리법 (최소 4단계, 각 단계는 성공을 위한 팁 포함)\n\n단계는 순서를 지키면 완성도가 높아지도록 구성하고, 응답은 JSON 형식만 반환하세요.`
-    : `I have the following ingredients in my kitchen: ${ingredients.join(', ')}. Suggest 3 approachable recipes that still lead to a restaurant-worthy finish. For each recipe you MUST return:\n- recipeName\n- a short, exciting description that promises a great result\n- ingredientsNeeded listing other common pantry items not in my list\n- instructions: at least four sequential steps written in plain, encouraging sentences that a middle-school student can follow, including any essential success tips\n\nKeep the tone supportive, ensure the guidance feels easy, and respond with JSON only.`;
+    const prompt = `제 주방에 다음 재료들이 있습니다: ${ingredients.join(', ')}. 이 재료들을 활용하는 레시피 3가지를 추천해 주세요. 각 레시피는 반드시 다음 정보를 포함해야 합니다.\n- 레시피 이름\n- 완성 결과가 훌륭해 보이도록 유도하는 짧고 설레는 설명\n- 제공된 재료 외에 필요할 수 있는 다른 흔한 재료 목록\n- 중학생도 따라 할 수 있을 만큼 간단하고 명확한 문장으로 작성된 단계별 조리법 (최소 4단계, 각 단계는 성공을 위한 팁 포함)\n\n단계는 순서를 지키면 완성도가 높아지도록 구성하고, 응답은 JSON 형식만 반환하세요.`;
 
 
     try {
