@@ -49,10 +49,33 @@ export interface RecipeRecommendation extends RecipeWithVideos {
 
 export type RecommendationMode = 'fridgeFirst' | 'openKitchen';
 
-export interface CookingLog {
+export interface NutrientProfile {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+}
+
+export interface NutritionBreakdownEntry {
+    ingredient: string;
+    profile: NutrientProfile;
+    confidence: 'high' | 'medium' | 'low';
+}
+
+export interface NutritionSummary {
+    total: NutrientProfile;
+    breakdown: NutritionBreakdownEntry[];
+    detectedCount: number;
+}
+
+export interface RecipeMemory {
     id: string;
-    title: string;
-    notes: string;
-    recipeName?: string;
+    recipeName: string;
+    description?: string;
     createdAt: string; // ISO string
+    note: string;
+    matchedIngredients?: string[];
+    missingIngredients?: string[];
+    lastCookedAt?: string | null;
+    timesCooked: number;
 }

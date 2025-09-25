@@ -59,6 +59,8 @@ interface RecipeModalProps {
   recommendationMode: RecommendationMode;
   onChangeRecommendationMode: (mode: RecommendationMode) => void;
   onUpdateIngredients: (ingredients: string[]) => void | Promise<void>;
+  onSaveRecipeToJournal: (recipe: RecipeRecommendation) => { id: string; isNew: boolean };
+  savedRecipeNames: string[];
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -80,6 +82,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   recommendationMode,
   onChangeRecommendationMode,
   onUpdateIngredients,
+  onSaveRecipeToJournal,
+  savedRecipeNames,
 }) => {
   const { language, t } = useLanguage();
   if (!isOpen) return null;
@@ -93,12 +97,32 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     !isLoading && !error && filteredRecipes.length === 0 && recipes.length > 0 && recommendationMode === 'fridgeFirst';
 
   const [ingredientsText, setIngredientsText] = useState(() => ingredients.join(', '));
+  const [justSavedState, setJustSavedState] = useState<{ name: string; isNew: boolean } | null>(null);
 
   useEffect(() => {
     setIngredientsText(ingredients.join(', '));
   }, [ingredients]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      setJustSavedState(null);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!justSavedState) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setJustSavedState(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [justSavedState]);
+
   const previewIngredients = useMemo(() => parseIngredientsInput(ingredientsText), [ingredientsText]);
+  const savedRecipeNamesSet = useMemo(
+    () => new Set(savedRecipeNames.map(name => name.trim().toLowerCase())),
+    [savedRecipeNames]
+  );
 
   const recipeSearchProviders = useMemo(
     () =>
@@ -143,6 +167,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const handleSubmitIngredients = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     await onUpdateIngredients(previewIngredients);
+  };
+
+  const handleSaveToJournal = (recipe: RecipeRecommendation) => {
+    const result = onSaveRecipeToJournal(recipe);
+    setJustSavedState({ name: recipe.recipeName, isNew: result.isNew });
   };
 
   return (
@@ -261,77 +290,114 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
           {!isLoading && !error && filteredRecipes.length > 0 && (
             <div className="space-y-6">
-              {filteredRecipes.map((recipe, index) => (
-                <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                    <div className="space-y-2 flex-1">
-                      <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
-                      <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
-                      {recipe.instructions.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
-                              <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
-                            </div>
+              {filteredRecipes.map((recipe, index) => {
+                const normalizedName = recipe.recipeName.trim().toLowerCase();
+                const isSaved = savedRecipeNamesSet.has(normalizedName);
+                const isJustSaved = justSavedState?.name === recipe.recipeName;
+
+                return (
+                  <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                      <div className="space-y-3 flex-1">
+                        <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
+
+                        <div className="mt-2 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-brand-blue">{t('recipeModalJournalTitle')}</p>
+                            <p className="text-xs text-brand-blue/70">{t('recipeModalJournalSubtitle')}</p>
                           </div>
-                          <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            {recipe.instructions.map((instruction, instructionIndex) => {
-                              const { summary, details } = extractStepSummary(instruction);
-                              return (
-                                <div
-                                  key={`${recipe.recipeName}-instruction-${instructionIndex}`}
-                                  className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
-                                      {instructionIndex + 1}
-                                    </span>
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-semibold text-gray-800">{summary}</p>
-                                      {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                          <div className="flex flex-col items-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => handleSaveToJournal(recipe)}
+                              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow transition ${
+                                isSaved
+                                  ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                  : 'bg-brand-blue text-white hover:bg-blue-600'
+                              }`}
+                            >
+                              {isSaved ? t('recipeModalSaveButtonSaved') : t('recipeModalSaveButton')}
+                            </button>
+                            {isJustSaved ? (
+                              <p className={`text-xs ${justSavedState?.isNew ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                {justSavedState?.isNew
+                                  ? t('recipeModalSaveNewSuccess')
+                                  : t('recipeModalSaveExisting')}
+                              </p>
+                            ) : (
+                              isSaved && (
+                                <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
+                              )
+                            )}
+                          </div>
+                        </div>
+
+                        {recipe.instructions.length > 0 && (
+                          <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
+                                <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                              </div>
+                            </div>
+                            <div className="mt-4 grid gap-3 md:grid-cols-2">
+                              {recipe.instructions.map((instruction, instructionIndex) => {
+                                const { summary, details } = extractStepSummary(instruction);
+                                return (
+                                  <div
+                                    key={`${recipe.recipeName}-instruction-${instructionIndex}`}
+                                    className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
+                                        {instructionIndex + 1}
+                                      </span>
+                                      <div className="space-y-1">
+                                        <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                        {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
+                            <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
+                              {t('recipeModalStepByStepHint')}
+                            </p>
                           </div>
-                          <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
-                            {t('recipeModalStepByStepHint')}
-                          </p>
-                        </div>
-                      )}
-                    </div>
+                        )}
+                      </div>
                       <div className="flex flex-col items-start md:items-end gap-2">
                         <span
                           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                             recipe.isFullyMatched
                               ? 'bg-emerald-50 text-emerald-700'
                               : 'bg-amber-50 text-amber-700'
-                        }`}
-                      >
-                        {recipe.isFullyMatched
-                          ? t('recipeModalBadgeReady')
-                          : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
-                      </span>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                        {t('recipeModalSearchProvidersLabel')}
-                      </p>
-                      <div className="flex flex-wrap gap-2 md:justify-end">
-                        {recipeSearchProviders.map(provider => (
-                          <a
-                            key={`${provider.name}-${recipe.recipeName}`}
-                            href={provider.buildUrl(recipe.recipeName)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-semibold text-brand-blue hover:bg-brand-blue/20 transition"
-                          >
-                            {provider.name}
-                          </a>
-                        ))}
+                          }`}
+                        >
+                          {recipe.isFullyMatched
+                            ? t('recipeModalBadgeReady')
+                            : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
+                        </span>
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                          {t('recipeModalSearchProvidersLabel')}
+                        </p>
+                        <div className="flex flex-wrap gap-2 md:justify-end">
+                          {recipeSearchProviders.map(provider => (
+                            <a
+                              key={`${provider.name}-${recipe.recipeName}`}
+                              href={provider.buildUrl(recipe.recipeName)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-semibold text-brand-blue hover:bg-brand-blue/20 transition"
+                            >
+                              {provider.name}
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
                   <div className="bg-gray-50 rounded-xl p-4">
                     <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
@@ -400,8 +466,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                       <p className="text-sm text-gray-400">{t('recipeModalNoVideos')}</p>
                     )}
                   </div>
-                </article>
-              ))}
+                  </article>
+                );
+              })}
             </div>
           )}
 
