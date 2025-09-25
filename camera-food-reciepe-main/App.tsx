@@ -9,7 +9,7 @@ import type {
   NutritionSummary,
   NutritionContext,
 } from './types';
-import { Category, ItemStatus, type RecommendationMode } from './types';
+import { Category, ItemStatus } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import PantryList from './components/PantryList';
 import Header from './components/Header';
@@ -73,7 +73,7 @@ const IntroScreen: React.FC<{ onStart: () => void; onScan: () => void }> = ({ on
 };
 
 const App: React.FC = () => {
-  const { language, t } = useLanguage();
+  const { t } = useLanguage();
   const [items, setItems] = useLocalStorage<PantryItem[]>('pantryItems', []);
   const [recipeMemories, setRecipeMemories] = useLocalStorage<RecipeMemory[]>('recipeMemories', []);
   const [activeView, setActiveView] = useState<ActiveView>('intro');
@@ -84,7 +84,6 @@ const App: React.FC = () => {
   const [isCameraOpen, setCameraOpen] = useState(false);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
-  const [recommendationMode, setRecommendationMode] = useState<RecommendationMode>('fridgeFirst');
   const [highlightedMemoryId, setHighlightedMemoryId] = useState<string | null>(null);
   const [nutritionSummary, setNutritionSummary] = useState<NutritionSummary | null>(null);
   const [nutritionIngredients, setNutritionIngredients] = useState<string[]>([]);
@@ -344,11 +343,10 @@ const App: React.FC = () => {
     setIsLoadingRecipes(true);
 
     try {
-      const suggestions = await getRecipeSuggestions(ingredients, language);
+      const suggestions = await getRecipeSuggestions(ingredients);
       if (!suggestions.length) {
         setRecipes([]);
         setError(t('errorNoRecipes'));
-        setRecommendationMode('fridgeFirst');
         return;
       }
       const enriched = await enrichRecipesWithVideos(suggestions, ingredients);
@@ -374,12 +372,10 @@ const App: React.FC = () => {
           : Number(b.isFullyMatched) - Number(a.isFullyMatched));
 
       setRecipes(recommendations);
-      setRecommendationMode('fridgeFirst');
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorUnknown';
       setRecipes([]);
       setError(t(messageKey as any));
-      setRecommendationMode('fridgeFirst');
     } finally {
       setIsLoadingRecipes(false);
     }
@@ -398,7 +394,7 @@ const App: React.FC = () => {
     }
 
     const sortedNames = [...activeItems]
-      .sort((a, b) => a.name.localeCompare(b.name, language))
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
       .map(item => item.name);
     const topIngredients = sortedNames.slice(0, 8);
     const sanitizedTopIngredients = sanitizeIngredients(topIngredients);
@@ -427,16 +423,21 @@ const App: React.FC = () => {
         throw new Error('errorNoIngredientsFound');
       }
       commitDetectedIngredients(sanitizedDetectedIngredients);
+      setManualIngredientsInput(sanitizedDetectedIngredients.join('\n'));
       setManualInputError(null);
-      openRecipeModalFor(sanitizedDetectedIngredients);
-      await fetchRecipesForIngredients(sanitizedDetectedIngredients, sanitizedDetectedIngredients);
+      setSelectedIngredients([]);
+      setRecipes([]);
+      setNutritionSummary(null);
+      setNutritionIngredients([]);
+      setNutritionContext(null);
+      setRecipeModalOpen(false);
+      setActiveView('pantry');
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorPhotoAnalysis';
       setSelectedIngredients([]);
       setRecipes([]);
       setError(t(messageKey as any));
       setRecipeModalOpen(true);
-      setRecommendationMode('fridgeFirst');
       setNutritionSummary(null);
       setNutritionIngredients([]);
       setNutritionContext(null);
@@ -504,7 +505,6 @@ const App: React.FC = () => {
 
   const handleCloseRecipeModal = () => {
     setRecipeModalOpen(false);
-    setRecommendationMode('fridgeFirst');
   };
 
   if (activeView === 'intro') {
@@ -794,8 +794,6 @@ const App: React.FC = () => {
           isLoading={isLoadingRecipes}
           error={error}
           ingredients={selectedIngredients}
-          recommendationMode={recommendationMode}
-          onChangeRecommendationMode={setRecommendationMode}
           onSaveRecipeToJournal={handleSaveRecipeMemory}
           savedRecipeNames={recipeMemories.map(memory => memory.recipeName)}
           nutritionSummary={nutritionSummary}
