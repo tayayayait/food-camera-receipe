@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type {
   PantryItem,
@@ -109,6 +109,19 @@ const App: React.FC = () => {
 
     return sanitized;
   };
+
+  const manualInputPreviewCount = useMemo(() => {
+    if (!manualIngredientsInput.trim()) {
+      return 0;
+    }
+
+    const rawEntries = manualIngredientsInput
+      .split(/[\n,]/)
+      .map(entry => entry.trim())
+      .filter(Boolean);
+
+    return sanitizeIngredients(rawEntries).length;
+  }, [manualIngredientsInput]);
 
   const categoryKeywords: Record<Category, string[]> = {
     [Category.Vegetable]: [
@@ -511,10 +524,6 @@ const App: React.FC = () => {
     return <IntroScreen onStart={() => setActiveView('pantry')} onScan={openCameraModal} />;
   }
 
-  const handleNavigate = (view: Exclude<ActiveView, 'intro'>) => {
-    setActiveView(view);
-  };
-
   const handleOpenJournalView = () => {
     setActiveView('journal');
   };
@@ -575,6 +584,11 @@ const App: React.FC = () => {
                   placeholder={t('pantryManualInputPlaceholder')}
                 />
                 <p className="text-xs text-[#1C2B4B]/60">{t('pantryManualInputHint')}</p>
+                {manualInputPreviewCount > 0 && (
+                  <p className="text-xs font-semibold text-[#1C2B4B]/80">
+                    {t('pantryManualInputCount', { count: manualInputPreviewCount })}
+                  </p>
+                )}
                 {manualInputError && (
                   <p className="text-xs font-semibold text-red-500">{manualInputError}</p>
                 )}
@@ -779,7 +793,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/30 font-sans text-[#1C2B4B]">
-      <Header activeView={activeView} onNavigate={handleNavigate} />
+      <Header />
       <main className="container mx-auto max-w-5xl px-4 py-6 md:py-10 pb-36 space-y-8">
         {renderActiveView()}
       </main>

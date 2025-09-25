@@ -50,46 +50,74 @@ const normalizeText = (text: string) =>
 
 const buildKeywords = (text: string) => normalizeText(text).split(' ').filter(word => word.length > 1);
 
-const isVideoRelevant = (title: string | undefined, recipeName: string, ingredients: string[]) => {
+const buildSearchQuery = (recipeName: string, ingredients: string[]) => {
+  const trimmedName = recipeName.trim();
+  const ingredientPart = ingredients.slice(0, 2).join(' ');
+  return [trimmedName, '요리 레시피 만드는 법', ingredientPart, 'recipe']
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+};
+
+const scoreVideo = (title: string | undefined, recipeName: string, ingredients: string[]) => {
   if (!title) {
-    return false;
+    return 0;
   }
 
   const normalizedTitle = normalizeText(title);
   if (!normalizedTitle) {
-    return false;
+    return 0;
   }
 
+  const normalizedRecipeName = normalizeText(recipeName);
   const recipeKeywords = buildKeywords(recipeName);
   const ingredientKeywords = ingredients.flatMap(ingredient => buildKeywords(ingredient)).slice(0, 6);
 
-  const recipeMatches = recipeKeywords.filter(keyword => normalizedTitle.includes(keyword));
-  if (recipeKeywords.length > 0 && recipeMatches.length > 0) {
-    return true;
+  let score = 0;
+
+  if (normalizedRecipeName && normalizedTitle.includes(normalizedRecipeName)) {
+    score += 6;
   }
 
-  if (ingredientKeywords.length === 0) {
-    return recipeKeywords.length === 0;
+  for (const keyword of recipeKeywords) {
+    if (normalizedTitle.includes(keyword)) {
+      score += 3;
+    }
   }
 
-  const ingredientMatches = ingredientKeywords.filter(keyword => normalizedTitle.includes(keyword));
-  return ingredientMatches.length >= Math.min(2, ingredientKeywords.length);
+  for (const keyword of ingredientKeywords) {
+    if (normalizedTitle.includes(keyword)) {
+      score += 1.5;
+    }
+  }
+
+  const emphasisKeywords = ['레시피', '요리', '만드는법', '만드는 법', 'recipe'];
+  for (const keyword of emphasisKeywords) {
+    const normalizedKeyword = normalizeText(keyword);
+    if (normalizedKeyword && normalizedTitle.includes(normalizedKeyword)) {
+      score += 0.5;
+    }
+  }
+
+  return score;
 };
 
-export async function getRecipeVideos(recipeName: string, ingredients: string[], maxResults = 2): Promise<RecipeVideo[]> {
+export async function getRecipeVideos(recipeName: string, ingredients: string[], maxResults = 4): Promise<RecipeVideo[]> {
   if (!YOUTUBE_API_KEY) {
     console.warn('YOUTUBE_API_KEY (or API_KEY) environment variable is not set. No recipe videos will be returned.');
     return [];
   }
 
   try {
-    const searchQuery = [recipeName, 'recipe', ...ingredients.slice(0, 2)].join(' ');
+    const sanitizedIngredients = ingredients.map(ingredient => ingredient.trim()).filter(Boolean);
+    const searchQuery = buildSearchQuery(recipeName, sanitizedIngredients);
+    const searchPoolSize = Math.max(8, maxResults * 3);
     const params = new URLSearchParams({
       part: 'snippet',
       q: searchQuery,
       key: YOUTUBE_API_KEY,
       type: 'video',
-      maxResults: String(maxResults),
+      maxResults: String(searchPoolSize),
       safeSearch: 'moderate',
       videoEmbeddable: 'true',
     });
@@ -152,7 +180,7 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
         .filter((entry): entry is readonly [string, YouTubeVideoDetail] => Boolean(entry[0]))
     );
 
-    return videoIds
+    const rankedVideos = videoIds
       .map(videoId => {
         const detail = detailsById.get(videoId);
         const snippet = detail?.snippet ?? searchSnippets.get(videoId);
@@ -169,19 +197,28 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
           return null;
         }
 
-        if (!isVideoRelevant(snippet.title, recipeName, ingredients)) {
+        const score = scoreVideo(snippet.title, recipeName, sanitizedIngredients);
+        if (score <= 0) {
           return null;
         }
 
         return {
-          id: videoId,
-          title: snippet.title ?? 'Recipe video',
-          channelTitle: snippet.channelTitle ?? 'Unknown creator',
-          thumbnailUrl: thumbnail,
-          videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
-        } as RecipeVideo;
+          score,
+          video: {
+            id: videoId,
+            title: snippet.title ?? 'Recipe video',
+            channelTitle: snippet.channelTitle ?? 'Unknown creator',
+            thumbnailUrl: thumbnail,
+            videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+          } as RecipeVideo,
+        };
       })
-      .filter((video): video is RecipeVideo => Boolean(video));
+      .filter((entry): entry is { score: number; video: RecipeVideo } => Boolean(entry))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxResults)
+      .map(entry => entry.video);
+
+    return rankedVideos;
   } catch (error) {
     console.error('Error fetching or verifying YouTube videos', error);
     throw new Error('error_youtube_fetch');
