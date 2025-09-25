@@ -8,6 +8,7 @@ interface RecipeJournalProps {
   onUpdate: (id: string, updates: Partial<RecipeMemory>) => void;
   onDelete: (id: string) => void;
   onMarkCooked: (id: string) => void;
+  onOpenDetails: (id: string) => void;
   highlightedId?: string | null;
 }
 
@@ -16,6 +17,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   onUpdate,
   onDelete,
   onMarkCooked,
+  onOpenDetails,
   highlightedId,
 }) => {
   const { language, t } = useLanguage();
@@ -145,13 +147,18 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        onClick={() => onMarkCooked(entry.id)}
-                        className="inline-flex items-center gap-2 rounded-xl border border-brand-orange/40 text-brand-orange px-4 py-2 text-sm font-semibold hover:bg-brand-orange/10 transition"
+                        onClick={() => onOpenDetails(entry.id)}
+                        className="inline-flex items-center gap-2 rounded-xl bg-brand-orange text-white px-4 py-2 text-sm font-semibold shadow hover:bg-orange-500 transition"
                       >
                         <FlameIcon />
-                        {entry.lastCookedAt
-                          ? t('journalCookedAgain')
-                          : t('journalCookedToday')}
+                        {t('journalOpenDetails')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onMarkCooked(entry.id)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-brand-orange/30 text-brand-orange px-4 py-2 text-sm font-semibold hover:bg-brand-orange/10 transition"
+                      >
+                        {entry.lastCookedAt ? t('journalQuickLogAgain') : t('journalQuickLogFirst')}
                       </button>
                       <button
                         type="button"

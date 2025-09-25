@@ -1,14 +1,11 @@
 import React from 'react';
 import type { PantryItem } from '../types';
-import { ItemStatus, Category } from '../types';
+import { Category } from '../types';
 import PantryItemCard from './PantryItemCard';
 import { useLanguage } from '../context/LanguageContext';
 
 interface PantryListProps {
   items: PantryItem[];
-  onEdit: (item: PantryItem) => void;
-  onUpdateStatus: (id: string, status: ItemStatus) => void;
-  onDelete: (id: string) => void;
 }
 
 const CATEGORY_ORDER: Category[] = [
@@ -20,7 +17,7 @@ const CATEGORY_ORDER: Category[] = [
   Category.Other,
 ];
 
-const PantryList: React.FC<PantryListProps> = ({ items, onEdit, onUpdateStatus, onDelete }) => {
+const PantryList: React.FC<PantryListProps> = ({ items }) => {
   const { language, t } = useLanguage();
 
   if (items.length === 0) {
@@ -54,9 +51,6 @@ const PantryList: React.FC<PantryListProps> = ({ items, onEdit, onUpdateStatus, 
               <PantryItemCard
                 key={item.id}
                 item={item}
-                onEdit={onEdit}
-                onUpdateStatus={onUpdateStatus}
-                onDelete={onDelete}
               />
             ))}
           </div>

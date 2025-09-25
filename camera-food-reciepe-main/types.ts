@@ -68,6 +68,11 @@ export interface NutritionSummary {
     detectedCount: number;
 }
 
+export type NutritionContext =
+  | { type: 'scan' }
+  | { type: 'recipe'; label: string }
+  | { type: 'memory'; label: string };
+
 export interface RecipeMemory {
     id: string;
     recipeName: string;
@@ -78,4 +83,7 @@ export interface RecipeMemory {
     missingIngredients?: string[];
     lastCookedAt?: string | null;
     timesCooked: number;
+    ingredients?: string[];
+    instructions?: string[];
+    videos?: RecipeVideo[];
 }

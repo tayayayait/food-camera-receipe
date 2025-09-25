@@ -1,5 +1,5 @@
 import React from 'react';
-import type { NutritionSummary } from '../types';
+import type { NutritionSummary, NutritionContext } from '../types';
 import { formatMacro } from '../services/nutritionService';
 import { useLanguage } from '../context/LanguageContext';
 import { SparklesIcon } from './icons';
@@ -7,6 +7,7 @@ import { SparklesIcon } from './icons';
 interface NutritionSummaryCardProps {
   summary: NutritionSummary;
   ingredients: string[];
+  context?: NutritionContext | null;
   onClear?: () => void;
 }
 
@@ -19,9 +20,16 @@ const confidenceLabelKey: Record<
   low: 'nutritionConfidenceLow',
 };
 
-const NutritionSummaryCard: React.FC<NutritionSummaryCardProps> = ({ summary, ingredients, onClear }) => {
+const NutritionSummaryCard: React.FC<NutritionSummaryCardProps> = ({ summary, ingredients, context, onClear }) => {
   const { t } = useLanguage();
   const macroTotal = summary.total.protein + summary.total.carbs + summary.total.fat;
+  const contextLabel = context
+    ? context.type === 'scan'
+      ? t('nutritionContextScan')
+      : context.type === 'recipe'
+        ? t('nutritionContextRecipe', { name: context.label })
+        : t('nutritionContextMemory', { name: context.label })
+    : null;
   const macroRows = [
     {
       key: 'protein' as const,
@@ -54,20 +62,21 @@ const NutritionSummaryCard: React.FC<NutritionSummaryCardProps> = ({ summary, in
       <div className="relative bg-[#7CB7FF] text-white p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="pointer-events-none absolute -top-20 -left-24 h-48 w-48 rounded-full bg-[#E2F0FF]/40 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-16 -right-16 h-40 w-40 rounded-full bg-[#EBF5FF]/40 blur-3xl" />
-        <div className="relative flex items-start gap-3">
-          <span className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-white/25 text-[#1C2B4B]">
-            <SparklesIcon />
-          </span>
-          <div className="space-y-1">
-            <p className="text-xs uppercase tracking-[0.35em] text-white/75 font-semibold">
-              {t('nutritionCardTagline')}
-            </p>
-            <h2 className="text-2xl font-bold leading-tight drop-shadow-[0_10px_18px_rgba(28,43,75,0.25)]">
-              {t('nutritionCardTitle')}
-            </h2>
-            <p className="text-sm text-white/85 max-w-xl">{t('nutritionCardSubtitle')}</p>
+          <div className="relative flex items-start gap-3">
+            <span className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-white/25 text-[#1C2B4B]">
+              <SparklesIcon />
+            </span>
+            <div className="space-y-1">
+              <p className="text-xs uppercase tracking-[0.35em] text-white/75 font-semibold">
+                {t('nutritionCardTagline')}
+              </p>
+              <h2 className="text-2xl font-bold leading-tight drop-shadow-[0_10px_18px_rgba(28,43,75,0.25)]">
+                {t('nutritionCardTitle')}
+              </h2>
+              <p className="text-sm text-white/85 max-w-xl">{t('nutritionCardSubtitle')}</p>
+              {contextLabel && <p className="text-xs text-white/80">{contextLabel}</p>}
+            </div>
           </div>
-        </div>
         {onClear && (
           <button
             type="button"

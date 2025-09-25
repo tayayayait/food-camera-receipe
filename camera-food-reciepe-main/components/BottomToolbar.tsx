@@ -18,10 +18,14 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({ actions }) => {
     return null;
   }
 
+  const columnStyle: React.CSSProperties = {
+    gridTemplateColumns: `repeat(${actions.length}, minmax(0, 1fr))`,
+  };
+
   return (
     <nav className="fixed inset-x-4 bottom-6 z-40">
       <div className="rounded-3xl border border-[#7CB7FF]/30 bg-[#E2F0FF]/90 backdrop-blur-xl px-4 py-3 shadow-[0_18px_40px_rgba(124,183,255,0.35)]">
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid gap-3" style={columnStyle}>
           {actions.map(action => (
             <button
               key={action.key}
