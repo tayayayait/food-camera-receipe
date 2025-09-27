@@ -60,12 +60,13 @@ export async function getRecipeSuggestions(ingredients: string[]): Promise<Recip
             },
         });
 
-        let jsonText: string | undefined;
+        let jsonText: string | undefined = response.text;
 
-        if (typeof response.output_text === 'string') {
-            jsonText = response.output_text;
-        } else if (response.response && typeof response.response.text === 'function') {
-            jsonText = await response.response.text();
+        if (!jsonText) {
+            const fallback = (response as { output_text?: string | undefined }).output_text;
+            if (typeof fallback === 'string') {
+                jsonText = fallback;
+            }
         }
 
         const trimmedJson = jsonText?.trim();
