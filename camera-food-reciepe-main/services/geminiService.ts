@@ -60,8 +60,21 @@ export async function getRecipeSuggestions(ingredients: string[]): Promise<Recip
             },
         });
 
-        const jsonText = response.text.trim();
-        const recipes: Recipe[] = JSON.parse(jsonText);
+        let jsonText: string | undefined;
+
+        if (typeof response.output_text === 'string') {
+            jsonText = response.output_text;
+        } else if (response.response && typeof response.response.text === 'function') {
+            jsonText = await response.response.text();
+        }
+
+        const trimmedJson = jsonText?.trim();
+
+        if (!trimmedJson) {
+            throw new Error('error_gemini_fetch');
+        }
+
+        const recipes: Recipe[] = JSON.parse(trimmedJson);
         return recipes.map(recipe => ({
             ...recipe,
             instructions: Array.isArray(recipe.instructions)
