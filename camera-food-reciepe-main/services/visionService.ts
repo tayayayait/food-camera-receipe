@@ -75,10 +75,10 @@ async function analyzeWithGemini(image: Blob): Promise<string[]> {
 
     let jsonText: string | undefined;
 
-    if (typeof response.output_text === 'string') {
+    if (typeof response.text === 'string') {
+      jsonText = response.text;
+    } else if (typeof response.output_text === 'string') {
       jsonText = response.output_text;
-    } else if (response.response && typeof response.response.text === 'function') {
-      jsonText = await response.response.text();
     }
 
     const trimmedJson = jsonText?.trim();
