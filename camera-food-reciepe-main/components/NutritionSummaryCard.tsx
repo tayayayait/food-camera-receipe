@@ -11,13 +11,15 @@ interface NutritionSummaryCardProps {
   onClear?: () => void;
 }
 
-const confidenceLabelKey: Record<
-  NutritionSummary['breakdown'][number]['confidence'],
-  'nutritionConfidenceHigh' | 'nutritionConfidenceMedium' | 'nutritionConfidenceLow'
+const dataQualityLabelKey: Record<
+  NutritionSummary['breakdown'][number]['dataQuality'],
+  | 'nutritionDataQualityAuthoritative'
+  | 'nutritionDataQualityDerived'
+  | 'nutritionDataQualityMissing'
 > = {
-  high: 'nutritionConfidenceHigh',
-  medium: 'nutritionConfidenceMedium',
-  low: 'nutritionConfidenceLow',
+  authoritative: 'nutritionDataQualityAuthoritative',
+  derived: 'nutritionDataQualityDerived',
+  missing: 'nutritionDataQualityMissing',
 };
 
 const NutritionSummaryCard: React.FC<NutritionSummaryCardProps> = ({ summary, ingredients, context, onClear }) => {
@@ -180,25 +182,40 @@ const NutritionSummaryCard: React.FC<NutritionSummaryCardProps> = ({ summary, in
           <div className="space-y-3">
             {summary.breakdown.map(entry => (
               <div
-                key={`${entry.ingredient}-${entry.confidence}`}
+                key={`${entry.ingredient}-${entry.sourceId ?? entry.dataQuality}`}
                 className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 bg-white rounded-xl border border-[#E2F0FF] p-4 shadow-sm"
               >
-                <div>
+                <div className="space-y-1">
                   <p className="text-sm font-semibold text-[#1C2B4B] capitalize">{entry.ingredient}</p>
-                  <p className="text-xs text-[#1C2B4B]/60">
-                    {t('nutritionCardBreakdown', {
-                      protein: formatMacro(entry.profile.protein, 'g'),
-                      carbs: formatMacro(entry.profile.carbs, 'g'),
-                      fat: formatMacro(entry.profile.fat, 'g'),
-                    })}
-                  </p>
+                  {entry.portionText && (
+                    <p className="text-[11px] uppercase tracking-[0.25em] text-[#1C2B4B]/40">
+                      {entry.portionText}
+                    </p>
+                  )}
+                  {entry.profile ? (
+                    <p className="text-xs text-[#1C2B4B]/60">
+                      {t('nutritionCardBreakdown', {
+                        protein: formatMacro(entry.profile.protein, 'g'),
+                        carbs: formatMacro(entry.profile.carbs, 'g'),
+                        fat: formatMacro(entry.profile.fat, 'g'),
+                      })}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[#1C2B4B]/60">{entry.note ?? t('nutritionCardNoData')}</p>
+                  )}
+                  {entry.sourceCitation && (
+                    <p className="text-[11px] text-[#1C2B4B]/50">{entry.sourceCitation}</p>
+                  )}
+                  {entry.note && entry.profile && (
+                    <p className="text-[11px] text-[#1C2B4B]/50">{entry.note}</p>
+                  )}
                 </div>
-                <div className="flex flex-col items-end">
+                <div className="flex flex-col items-end gap-1">
                   <span className="text-sm font-bold text-[#1C2B4B]">
-                    {formatMacro(entry.profile.calories, 'kcal')}
+                    {entry.profile ? formatMacro(entry.profile.calories, 'kcal') : t('nutritionCardNoDataShort')}
                   </span>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.35em] text-[#1C2B4B]/40">
-                    {t(confidenceLabelKey[entry.confidence])}
+                    {t(dataQualityLabelKey[entry.dataQuality])}
                   </span>
                 </div>
               </div>

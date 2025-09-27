@@ -54,10 +54,17 @@ export interface NutrientProfile {
     fat: number;
 }
 
+export type NutritionDataQuality = 'authoritative' | 'derived' | 'missing';
+
 export interface NutritionBreakdownEntry {
     ingredient: string;
-    profile: NutrientProfile;
-    confidence: 'high' | 'medium' | 'low';
+    profile?: NutrientProfile;
+    portionGrams?: number;
+    portionText?: string;
+    sourceCitation?: string;
+    sourceId?: string;
+    dataQuality: NutritionDataQuality;
+    note?: string;
 }
 
 export interface NutritionSummary {
