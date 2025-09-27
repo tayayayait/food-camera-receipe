@@ -143,9 +143,11 @@ export const nutritionCardBreakdown = '단백질 {{protein}} · 탄수화물 {{c
 export const nutritionCardMacroSplitTitle = '한눈에 보는 영양 비율';
 export const nutritionCardMacroSplitHint = '3대 영양소 비중 (%)';
 export const nutritionCardMacroPercent = '전체 영양소의 {{percent}}%';
-export const nutritionConfidenceHigh = '신뢰도 높음';
-export const nutritionConfidenceMedium = '신뢰도 보통';
-export const nutritionConfidenceLow = '대략적인 추정';
+export const nutritionDataQualityAuthoritative = '공신력 있는 자료';
+export const nutritionDataQualityDerived = '참고용 추정치';
+export const nutritionDataQualityMissing = '데이터 없음';
+export const nutritionCardNoData = '공식 데이터가 없어 합계에 포함하지 않았어요.';
+export const nutritionCardNoDataShort = '—';
 
 export const toolbarScan = '스캔';
 export const toolbarScanHint = '냉장고 분석';

@@ -1,102 +1,31 @@
-import type { NutritionSummary, NutrientProfile, NutritionBreakdownEntry } from '../types';
+import type {
+  NutritionBreakdownEntry,
+  NutritionDataQuality,
+  NutritionSummary,
+  NutrientProfile,
+} from '../types';
+import { foodData } from './foodData';
 
-interface NutritionRecord {
-  profile: NutrientProfile;
-  aliases: string[];
+interface ParsedIngredient {
+  quantity: number;
+  quantityText?: string;
+  unit?: string;
+  unitText?: string;
+  name: string;
+  original: string;
 }
 
-const nutritionDatabase: NutritionRecord[] = [
-  {
-    aliases: ['chicken breast', 'chicken'],
-    profile: { calories: 165, protein: 31, carbs: 0, fat: 4 },
-  },
-  {
-    aliases: ['salmon'],
-    profile: { calories: 208, protein: 22, carbs: 0, fat: 13 },
-  },
-  {
-    aliases: ['egg', 'eggs'],
-    profile: { calories: 78, protein: 6, carbs: 0.6, fat: 5 },
-  },
-  {
-    aliases: ['tofu'],
-    profile: { calories: 94, protein: 10, carbs: 2, fat: 6 },
-  },
-  {
-    aliases: ['broccoli'],
-    profile: { calories: 55, protein: 3.7, carbs: 11, fat: 0.6 },
-  },
-  {
-    aliases: ['spinach'],
-    profile: { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 },
-  },
-  {
-    aliases: ['tomato', 'tomatoes'],
-    profile: { calories: 22, protein: 1.1, carbs: 4.8, fat: 0.2 },
-  },
-  {
-    aliases: ['potato', 'potatoes'],
-    profile: { calories: 161, protein: 4.3, carbs: 36, fat: 0.2 },
-  },
-  {
-    aliases: ['rice', 'cooked rice'],
-    profile: { calories: 206, protein: 4.2, carbs: 45, fat: 0.4 },
-  },
-  {
-    aliases: ['pasta'],
-    profile: { calories: 221, protein: 8, carbs: 43, fat: 1.3 },
-  },
-  {
-    aliases: ['bread'],
-    profile: { calories: 79, protein: 4, carbs: 15, fat: 1 },
-  },
-  {
-    aliases: ['cheese', 'cheddar'],
-    profile: { calories: 113, protein: 7, carbs: 0.4, fat: 9 },
-  },
-  {
-    aliases: ['milk'],
-    profile: { calories: 103, protein: 8, carbs: 12, fat: 2.4 },
-  },
-  {
-    aliases: ['yogurt', 'greek yogurt'],
-    profile: { calories: 100, protein: 17, carbs: 6, fat: 0.7 },
-  },
-  {
-    aliases: ['banana'],
-    profile: { calories: 105, protein: 1.3, carbs: 27, fat: 0.3 },
-  },
-  {
-    aliases: ['apple'],
-    profile: { calories: 95, protein: 0.5, carbs: 25, fat: 0.3 },
-  },
-  {
-    aliases: ['carrot', 'carrots'],
-    profile: { calories: 41, protein: 1, carbs: 10, fat: 0.2 },
-  },
-  {
-    aliases: ['bell pepper', 'capsicum'],
-    profile: { calories: 37, protein: 1, carbs: 9, fat: 0.4 },
-  },
-  {
-    aliases: ['onion', 'onions'],
-    profile: { calories: 44, protein: 1.2, carbs: 10, fat: 0.1 },
-  },
-  {
-    aliases: ['garlic'],
-    profile: { calories: 45, protein: 1.9, carbs: 10, fat: 0.1 },
-  },
-  {
-    aliases: ['mushroom', 'mushrooms'],
-    profile: { calories: 44, protein: 6, carbs: 9, fat: 0.3 },
-  },
-  {
-    aliases: ['shrimp'],
-    profile: { calories: 84, protein: 18, carbs: 1, fat: 1 },
-  },
-];
+interface FoodMatch {
+  entry: (typeof foodData)[number];
+  matchType: 'exact' | 'partial';
+}
 
-const fallbackProfile: NutrientProfile = { calories: 45, protein: 2, carbs: 9, fat: 1.5 };
+interface PortionResult {
+  grams: number;
+  dataQuality: NutritionDataQuality;
+  portionText: string;
+  note?: string;
+}
 
 const round = (value: number) => Math.round(value * 10) / 10;
 
@@ -104,26 +33,325 @@ const cleanName = (name: string) =>
   name
     .toLowerCase()
     .replace(/\(.*?\)/g, '')
-    .replace(/[^a-z가-힣0-9\s]/g, '')
+    .replace(/[^a-z가-힣0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-const findRecord = (ingredient: string): { entry: NutritionRecord; confidence: 'high' | 'medium' } | null => {
-  const cleaned = cleanName(ingredient);
+const canonicalUnitMap: Record<string, string> = {
+  g: 'gram',
+  gram: 'gram',
+  grams: 'gram',
+  kilogram: 'kilogram',
+  kilograms: 'kilogram',
+  kg: 'kilogram',
+  milligram: 'milligram',
+  milligrams: 'milligram',
+  mg: 'milligram',
+  ounce: 'ounce',
+  ounces: 'ounce',
+  oz: 'ounce',
+  pound: 'pound',
+  pounds: 'pound',
+  lb: 'pound',
+  lbs: 'pound',
+  milliliter: 'milliliter',
+  milliliters: 'milliliter',
+  ml: 'milliliter',
+  liter: 'liter',
+  liters: 'liter',
+  l: 'liter',
+  cup: 'cup',
+  cups: 'cup',
+  tablespoon: 'tablespoon',
+  tablespoons: 'tablespoon',
+  tbsp: 'tablespoon',
+  teaspoon: 'teaspoon',
+  teaspoons: 'teaspoon',
+  tsp: 'teaspoon',
+  serving: 'serving',
+  servings: 'serving',
+  slice: 'slice',
+  slices: 'slice',
+  piece: 'piece',
+  pieces: 'piece',
+  fillet: 'fillet',
+  fillets: 'fillet',
+  clove: 'clove',
+  cloves: 'clove',
+  container: 'container',
+  containers: 'container',
+  medium: 'medium',
+  large: 'large',
+  small: 'small',
+};
 
-  for (const record of nutritionDatabase) {
-    if (record.aliases.some(alias => cleanName(alias) === cleaned)) {
-      return { entry: record, confidence: 'high' };
+const baseUnitToGrams: Record<string, number> = {
+  gram: 1,
+  kilogram: 1000,
+  milligram: 0.001,
+  ounce: 28.3495,
+  pound: 453.592,
+  milliliter: 1,
+  liter: 1000,
+};
+
+const unicodeFractionToAscii: Record<string, string> = {
+  '¼': '1/4',
+  '½': '1/2',
+  '¾': '3/4',
+  '⅓': '1/3',
+  '⅔': '2/3',
+  '⅛': '1/8',
+  '⅜': '3/8',
+  '⅝': '5/8',
+  '⅞': '7/8',
+};
+
+const phraseNumberMap: Record<string, number> = {
+  'one and a half': 1.5,
+  'one and one half': 1.5,
+  'one and half': 1.5,
+  'one half': 0.5,
+  'one third': 1 / 3,
+  'two thirds': 2 / 3,
+  'three quarters': 0.75,
+  'three quarter': 0.75,
+  'a half': 0.5,
+  'a quarter': 0.25,
+};
+
+const wordNumberMap: Record<string, number> = {
+  zero: 0,
+  one: 1,
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+  eleven: 11,
+  twelve: 12,
+  dozen: 12,
+  half: 0.5,
+  quarter: 0.25,
+  a: 1,
+  an: 1,
+};
+
+const fractionPattern = /^([0-9]+)\s+([0-9]+\/[0-9]+)$/;
+
+const parseFraction = (input: string): number | null => {
+  const [numerator, denominator] = input.split('/').map(Number);
+  if (!Number.isNaN(numerator) && !Number.isNaN(denominator) && denominator !== 0) {
+    return numerator / denominator;
+  }
+  return null;
+};
+
+const extractQuantity = (tokensLower: string[], tokensOriginal: string[]) => {
+  let quantity: number | undefined;
+  let usedTokens = 0;
+  let quantityText = '';
+
+  const maxPhraseLength = Math.min(3, tokensLower.length);
+  for (let length = maxPhraseLength; length >= 2; length -= 1) {
+    const phrase = tokensLower.slice(0, length).join(' ');
+    if (phraseNumberMap[phrase] !== undefined) {
+      quantity = phraseNumberMap[phrase];
+      usedTokens = length;
+      quantityText = tokensOriginal.slice(0, length).join(' ');
+      break;
     }
   }
 
-  for (const record of nutritionDatabase) {
-    if (record.aliases.some(alias => cleaned.includes(cleanName(alias)))) {
-      return { entry: record, confidence: 'medium' };
+  if (quantity === undefined && tokensLower.length > 0) {
+    const first = tokensLower[0];
+
+    if (wordNumberMap[first] !== undefined) {
+      quantity = wordNumberMap[first];
+      usedTokens = 1;
+      quantityText = tokensOriginal[0];
+    }
+  }
+
+  if (quantity === undefined && tokensLower.length > 0) {
+    const combinedFraction = tokensLower[0].match(fractionPattern);
+    if (combinedFraction) {
+      const whole = Number.parseFloat(combinedFraction[1]);
+      const fractionValue = parseFraction(combinedFraction[2]);
+      if (!Number.isNaN(whole) && fractionValue !== null) {
+        quantity = whole + fractionValue;
+        usedTokens = 2;
+        quantityText = tokensOriginal.slice(0, 2).join(' ');
+      }
+    }
+  }
+
+  if (quantity === undefined && tokensLower.length >= 2) {
+    const [first, second] = tokensLower;
+    if (/^[0-9]+$/.test(first) && /^[0-9]+\/[0-9]+$/.test(second)) {
+      const whole = Number.parseInt(first, 10);
+      const fractionValue = parseFraction(second);
+      if (!Number.isNaN(whole) && fractionValue !== null) {
+        quantity = whole + fractionValue;
+        usedTokens = 2;
+        quantityText = tokensOriginal.slice(0, 2).join(' ');
+      }
+    }
+  }
+
+  if (quantity === undefined && tokensLower.length > 0) {
+    const first = tokensLower[0].replace(',', '.');
+    if (/^[0-9]+(\.[0-9]+)?$/.test(first)) {
+      quantity = Number.parseFloat(first);
+      usedTokens = 1;
+      quantityText = tokensOriginal[0];
+    }
+  }
+
+  if (quantity === undefined && tokensLower.length > 0 && /^[0-9]+\/[0-9]+$/.test(tokensLower[0])) {
+    const fractionValue = parseFraction(tokensLower[0]);
+    if (fractionValue !== null) {
+      quantity = fractionValue;
+      usedTokens = 1;
+      quantityText = tokensOriginal[0];
+    }
+  }
+
+  return {
+    quantity,
+    usedTokens,
+    quantityText,
+  };
+};
+
+const parseIngredientString = (input: string): ParsedIngredient => {
+  let normalized = input.trim();
+  normalized = normalized.replace(/\((.*?)\)/g, ' ');
+  normalized = normalized.replace(/[\u2012-\u2015]/g, '-');
+  normalized = normalized.replace(/(\d)-(\d\/[0-9]+)/g, '$1 $2');
+  normalized = normalized.replace(/([0-9])([a-zA-Z가-힣])/g, '$1 $2');
+  normalized = normalized.replace(/([a-zA-Z가-힣])([0-9])/g, '$1 $2');
+  normalized = normalized.replace(/[¼½¾⅓⅔⅛⅜⅝⅞]/g, match => ` ${unicodeFractionToAscii[match]} `);
+  normalized = normalized.replace(/\s+/g, ' ').trim();
+
+  const originalTokens = normalized.split(' ').filter(Boolean);
+  const tokensLower = originalTokens.map(token => token.toLowerCase());
+
+  const { quantity, usedTokens, quantityText } = extractQuantity(tokensLower, originalTokens);
+
+  let index = usedTokens;
+  let unit: string | undefined;
+  let unitText: string | undefined;
+
+  if (tokensLower[index]) {
+    const canonical = canonicalUnitMap[tokensLower[index]];
+    if (canonical) {
+      unit = canonical;
+      unitText = originalTokens[index];
+      index += 1;
+    }
+  }
+
+  if (tokensLower[index] === 'of') {
+    index += 1;
+  }
+
+  const nameTokens = originalTokens.slice(index);
+  const name = nameTokens.join(' ').trim() || input.trim();
+
+  return {
+    quantity: quantity ?? 1,
+    quantityText,
+    unit,
+    unitText,
+    name,
+    original: input,
+  };
+};
+
+const findFoodMatch = (ingredient: ParsedIngredient): FoodMatch | null => {
+  const cleaned = cleanName(ingredient.name);
+
+  for (const entry of foodData) {
+    if (entry.aliases.some(alias => cleanName(alias) === cleaned)) {
+      return { entry, matchType: 'exact' };
+    }
+  }
+
+  for (const entry of foodData) {
+    if (entry.aliases.some(alias => cleaned.includes(cleanName(alias)))) {
+      return { entry, matchType: 'partial' };
     }
   }
 
   return null;
+};
+
+const scaleProfile = (per100g: NutrientProfile, grams: number): NutrientProfile => {
+  const multiplier = grams / 100;
+  return {
+    calories: round(per100g.calories * multiplier),
+    protein: round(per100g.protein * multiplier),
+    carbs: round(per100g.carbs * multiplier),
+    fat: round(per100g.fat * multiplier),
+  };
+};
+
+const determinePortion = (
+  parsed: ParsedIngredient,
+  match: FoodMatch,
+): PortionResult => {
+  const { entry } = match;
+  const { quantity, unit, unitText, quantityText } = parsed;
+  const normalizedQuantityText = quantityText ?? String(round(quantity));
+
+  if (unit && baseUnitToGrams[unit] !== undefined) {
+    const grams = quantity * baseUnitToGrams[unit];
+    const portionText = `${normalizedQuantityText} ${unitText ?? unit} (${round(grams)} g)`;
+    return { grams, dataQuality: 'authoritative', portionText };
+  }
+
+  if (unit && entry.portionEquivalents?.[unit] !== undefined) {
+    const grams = quantity * entry.portionEquivalents[unit];
+    const portionText = `${normalizedQuantityText} ${unitText ?? unit} ≈ ${round(grams)} g`;
+    return { grams, dataQuality: 'authoritative', portionText };
+  }
+
+  if (unit && unit === 'serving' && entry.portionEquivalents?.serving !== undefined) {
+    const grams = quantity * entry.portionEquivalents.serving;
+    const portionText = `${normalizedQuantityText} ${unitText ?? unit} ≈ ${round(grams)} g`;
+    return { grams, dataQuality: 'authoritative', portionText };
+  }
+
+  if (unit && unit === 'fillet' && entry.portionEquivalents?.fillet !== undefined) {
+    const grams = quantity * entry.portionEquivalents.fillet;
+    const portionText = `${normalizedQuantityText} ${unitText ?? unit} ≈ ${round(grams)} g`;
+    return { grams, dataQuality: 'authoritative', portionText };
+  }
+
+  if (unit && entry.portionEquivalents?.piece !== undefined && ['piece', 'medium', 'large', 'small'].includes(unit)) {
+    const specificUnitGrams = entry.portionEquivalents[unit] ?? entry.portionEquivalents.piece;
+    if (specificUnitGrams !== undefined) {
+      const grams = quantity * specificUnitGrams;
+      const portionText = `${normalizedQuantityText} ${unitText ?? unit} ≈ ${round(grams)} g`;
+      return { grams, dataQuality: 'authoritative', portionText };
+    }
+  }
+
+  const grams = quantity * entry.defaultPortionGrams;
+  const inferredText = quantity === 1
+    ? `USDA reference portion ≈ ${round(grams)} g`
+    : `${normalizedQuantityText} × USDA reference portion ≈ ${round(grams)} g`;
+
+  const note = unit
+    ? `Unable to convert unit "${unitText ?? unit}"; used USDA reference weight.`
+    : undefined;
+
+  return { grams, dataQuality: 'derived', portionText: inferredText, note };
 };
 
 const sumProfiles = (target: NutrientProfile, profile: NutrientProfile): NutrientProfile => ({
@@ -137,15 +365,43 @@ export function estimateNutritionSummary(ingredients: string[]): NutritionSummar
   const breakdown: NutritionBreakdownEntry[] = [];
 
   const total = ingredients.reduce<NutrientProfile>((acc, ingredient) => {
-    const match = findRecord(ingredient);
+    const parsed = parseIngredientString(ingredient);
+    const match = findFoodMatch(parsed);
 
-    if (match) {
-      breakdown.push({ ingredient, profile: match.entry.profile, confidence: match.confidence });
-      return sumProfiles(acc, match.entry.profile);
+    if (!match) {
+      breakdown.push({
+        ingredient,
+        dataQuality: 'missing',
+        note: 'No USDA FoodData Central record matched this ingredient.',
+      });
+      return acc;
     }
 
-    breakdown.push({ ingredient, profile: fallbackProfile, confidence: 'low' });
-    return sumProfiles(acc, fallbackProfile);
+    const portion = determinePortion(parsed, match);
+    const profile = scaleProfile(match.entry.nutrientsPer100g, portion.grams);
+    const baseQuality = match.matchType === 'exact' ? portion.dataQuality : 'derived';
+    const notes: string[] = [];
+
+    if (portion.note) {
+      notes.push(portion.note);
+    }
+
+    if (match.matchType === 'partial') {
+      notes.push('Matched USDA entry using a partial name similarity.');
+    }
+
+    breakdown.push({
+      ingredient,
+      profile,
+      portionGrams: round(portion.grams),
+      portionText: portion.portionText,
+      sourceCitation: match.entry.citation,
+      sourceId: match.entry.sourceId,
+      dataQuality: baseQuality,
+      note: notes.length ? notes.join(' ') : undefined,
+    });
+
+    return sumProfiles(acc, profile);
   }, { calories: 0, protein: 0, carbs: 0, fat: 0 });
 
   return {
