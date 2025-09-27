@@ -5,6 +5,9 @@ const VISION_API_KEY = process.env.VISION_API_KEY as string | undefined;
 const GEMINI_API_KEY =
   (process.env.GEMINI_API_KEY as string | undefined) ?? (process.env.API_KEY as string | undefined);
 
+const GEMINI_VISION_MODEL =
+  (process.env.GEMINI_VISION_MODEL as string | undefined) ?? 'gemini-2.5-flash';
+
 const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 const ingredientSchema = {
@@ -47,7 +50,7 @@ async function analyzeWithGemini(image: Blob): Promise<string[]> {
     const base64 = arrayBufferToBase64(arrayBuffer);
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: GEMINI_VISION_MODEL,
       contents: [
         {
           role: 'user',
