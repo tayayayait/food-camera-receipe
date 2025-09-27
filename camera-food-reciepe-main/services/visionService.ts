@@ -73,8 +73,21 @@ async function analyzeWithGemini(image: Blob): Promise<string[]> {
       },
     });
 
-    const jsonText = response.text.trim();
-    const ingredients = JSON.parse(jsonText);
+    let jsonText: string | undefined;
+
+    if (typeof response.output_text === 'string') {
+      jsonText = response.output_text;
+    } else if (response.response && typeof response.response.text === 'function') {
+      jsonText = await response.response.text();
+    }
+
+    const trimmedJson = jsonText?.trim();
+
+    if (!trimmedJson) {
+      throw new Error('error_vision_fetch');
+    }
+
+    const ingredients = JSON.parse(trimmedJson);
 
     if (!Array.isArray(ingredients)) {
       return [];
