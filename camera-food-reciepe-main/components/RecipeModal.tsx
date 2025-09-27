@@ -7,6 +7,11 @@ import type {
 import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
+import {
+  fetchRecipeLinks,
+  recipeProviderNames,
+  type RecipeProviderLinkResult,
+} from '../services/recipeLinkService';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -88,6 +93,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   if (!isOpen) return null;
 
   const [justSavedState, setJustSavedState] = useState<{ name: string; isNew: boolean } | null>(null);
+  const [providerLookups, setProviderLookups] = useState<
+    Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }>
+  >({});
 
   useEffect(() => {
     if (!isOpen) {
@@ -117,26 +125,99 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         : t('nutritionContextMemory', { name: nutritionContext.label })
     : null;
 
-  const recipeSearchProviders = useMemo(
-    () => [
-      {
-        name: '만개의 레시피',
-        buildUrl: (query: string) =>
-          `https://www.10000recipe.com/recipe/list.html?q=${encodeURIComponent(query)}`,
-      },
-      {
-        name: '네이버 레시피',
-        buildUrl: (query: string) =>
-          `https://search.naver.com/search.naver?query=${encodeURIComponent(`${query} 레시피`)}`,
-      },
-      {
-        name: 'YouTube',
-        buildUrl: (query: string) =>
-          `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} 요리`)}`,
-      },
-    ],
-    []
-  );
+  useEffect(() => {
+    if (!isOpen || recipes.length === 0) {
+      setProviderLookups({});
+      return;
+    }
+
+    let isActive = true;
+    const controller = new AbortController();
+
+    setProviderLookups(() => {
+      const loadingState: Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }> = {};
+      recipes.forEach(recipe => {
+        loadingState[recipe.recipeName] = { status: 'loading', results: [] };
+      });
+      return loadingState;
+    });
+
+    const load = async () => {
+      try {
+        const entries = await Promise.all(
+          recipes.map(async recipe => {
+            const combinedIngredients = Array.from(
+              new Set(
+                [
+                  ...ingredients,
+                  ...recipe.ingredientsNeeded,
+                  ...recipe.matchedIngredients,
+                  ...recipe.missingIngredients,
+                ]
+                  .map(item => item.trim())
+                  .filter(Boolean)
+              )
+            );
+
+            const results = await fetchRecipeLinks(
+              recipe.recipeName,
+              combinedIngredients,
+              controller.signal
+            );
+
+            return [recipe.recipeName, results] as const;
+          })
+        );
+
+        if (!isActive) {
+          return;
+        }
+
+        setProviderLookups(prev => {
+          const nextState = { ...prev };
+          entries.forEach(([name, results]) => {
+            nextState[name] = { status: 'loaded', results };
+          });
+          return nextState;
+        });
+      } catch (error) {
+        if ((error as { name?: string }).name === 'AbortError') {
+          return;
+        }
+
+        if (!isActive) {
+          return;
+        }
+
+        const fallbackMessage =
+          error instanceof Error
+            ? error.message
+            : '직접 링크 정보를 불러오는 중 문제가 발생했어요.';
+
+        setProviderLookups(() => {
+          const failureState: Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }> = {};
+          recipes.forEach(recipe => {
+            failureState[recipe.recipeName] = {
+              status: 'loaded',
+              results: recipeProviderNames.map(provider => ({
+                provider,
+                status: 'error' as const,
+                message: fallbackMessage,
+              })),
+            };
+          });
+          return failureState;
+        });
+      }
+    };
+
+    void load();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [ingredients, isOpen, recipes]);
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
     const result = onSaveRecipeToJournal(recipe);
@@ -254,6 +335,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const normalizedName = recipe.recipeName.trim().toLowerCase();
                 const isSaved = savedRecipeNamesSet.has(normalizedName);
                 const isJustSaved = justSavedState?.name === recipe.recipeName;
+                const providerState = providerLookups[recipe.recipeName];
+                const providerStatus = providerState?.status ?? 'loading';
+                const providerResults = providerState?.results ?? [];
 
                 return (
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
@@ -328,7 +412,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col items-start md:items-end gap-2">
+                      <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-72">
                         <span
                           className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                             recipe.isFullyMatched
@@ -343,18 +427,41 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                           {t('recipeModalSearchProvidersLabel')}
                         </p>
-                        <div className="flex flex-wrap gap-2 md:justify-end">
-                          {recipeSearchProviders.map(provider => (
-                            <a
-                              key={`${provider.name}-${recipe.recipeName}`}
-                              href={provider.buildUrl(recipe.recipeName)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-semibold text-brand-blue hover:bg-brand-blue/20 transition"
-                            >
-                              {provider.name}
-                            </a>
-                          ))}
+                        <div className="flex w-full flex-col gap-2 md:items-end">
+                          {providerStatus === 'loading' && (
+                            <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-blue animate-pulse">
+                              {t('recipeModalProviderLoading')}
+                            </span>
+                          )}
+                          {providerStatus === 'loaded' &&
+                            providerResults.map(result =>
+                              result.status === 'success' ? (
+                                <a
+                                  key={`${result.provider}-${recipe.recipeName}`}
+                                  href={result.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
+                                >
+                                  <span>{result.provider}</span>
+                                  <span className="text-[11px] font-normal text-brand-blue/70">
+                                    {result.title}
+                                  </span>
+                                </a>
+                              ) : (
+                                <div
+                                  key={`${result.provider}-${recipe.recipeName}`}
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right"
+                                >
+                                  {result.message
+                                    ? t('recipeModalProviderErrorWithReason', {
+                                        provider: result.provider,
+                                        reason: result.message,
+                                      })
+                                    : t('recipeModalProviderError', { provider: result.provider })}
+                                </div>
+                              )
+                            )}
                         </div>
                       </div>
                     </div>

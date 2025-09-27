@@ -106,6 +106,9 @@ export const recipeModalMatchedIngredientsLabel = '이미 보유';
 export const recipeModalBadgeReady = '바로 요리 가능';
 export const recipeModalBadgeMissing = '{{count}}개 더 필요';
 export const recipeModalSearchProvidersLabel = '다음에서 자세한 레시피 찾기:';
+export const recipeModalProviderLoading = '검증된 레시피 링크를 불러오는 중이에요...';
+export const recipeModalProviderError = '{{provider}}에서 바로 열 수 있는 링크를 찾지 못했어요.';
+export const recipeModalProviderErrorWithReason = '{{provider}}에서 바로 열 수 있는 링크를 찾지 못했어요. {{reason}}';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
 
