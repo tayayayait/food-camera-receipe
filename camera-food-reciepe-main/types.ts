@@ -86,6 +86,7 @@ export interface RecipeMemory {
     note: string;
     matchedIngredients?: string[];
     missingIngredients?: string[];
+    journalPreviewImage?: string | null;
     lastCookedAt?: string | null;
     timesCooked: number;
     ingredients?: string[];

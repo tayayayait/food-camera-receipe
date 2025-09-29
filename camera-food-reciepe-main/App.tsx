@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type {
   PantryItem,
@@ -25,8 +25,11 @@ import { getRecipeVideos } from './services/videoService';
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
+import { designPreviewService } from './services/designPreviewService';
 
 type ActiveView = 'intro' | 'pantry' | 'recipes' | 'nutrition' | 'journal';
+
+const DEFAULT_PREVIEW_ART_STYLE = 'warm tabletop scene with soft watercolor lighting and film grain';
 
 const IntroScreen: React.FC<{ onStart: () => void; onScan: () => void }> = ({ onStart, onScan }) => {
   const { t } = useLanguage();
@@ -91,6 +94,8 @@ const App: React.FC = () => {
   const [nutritionContext, setNutritionContext] = useState<NutritionContext | null>(null);
   const [manualIngredientsInput, setManualIngredientsInput] = useState('');
   const [manualInputError, setManualInputError] = useState<string | null>(null);
+  const [pendingPreviewIds, setPendingPreviewIds] = useState<Set<string>>(new Set());
+  const pendingPreviewRequests = useRef<Set<string>>(new Set());
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
@@ -108,6 +113,72 @@ const App: React.FC = () => {
     });
 
     return sanitized;
+  };
+
+  const buildPreviewRequest = (details: {
+    recipeName: string;
+    matchedIngredients?: string[];
+    missingIngredients?: string[];
+    artStyle?: string;
+  }) => ({
+    recipeName: details.recipeName,
+    matchedIngredients: sanitizeIngredients(details.matchedIngredients ?? []),
+    missingIngredients: sanitizeIngredients(details.missingIngredients ?? []),
+    artStyle: details.artStyle ?? DEFAULT_PREVIEW_ART_STYLE,
+  });
+
+  const createIngredientSignature = (list: string[] | undefined, alreadySanitized = false) => {
+    const baseList = alreadySanitized ? list ?? [] : sanitizeIngredients(list ?? []);
+    return baseList
+      .map(item => item.trim().toLowerCase())
+      .sort((a, b) => a.localeCompare(b))
+      .join('|');
+  };
+
+  const requestPreviewForMemory = async (
+    memoryId: string,
+    details: {
+      recipeName: string;
+      matchedIngredients?: string[];
+      missingIngredients?: string[];
+      artStyle?: string;
+    }
+  ) => {
+    if (pendingPreviewRequests.current.has(memoryId)) {
+      return;
+    }
+
+    const previewRequest = buildPreviewRequest(details);
+    setPendingPreviewIds(current => {
+      if (current.has(memoryId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.add(memoryId);
+      return next;
+    });
+    pendingPreviewRequests.current.add(memoryId);
+
+    try {
+      const { dataUrl } = await designPreviewService(previewRequest);
+      setRecipeMemories(current =>
+        current.map(memory =>
+          memory.id === memoryId ? { ...memory, journalPreviewImage: dataUrl } : memory
+        )
+      );
+    } catch (error) {
+      console.error('Failed to generate journal preview', error);
+    } finally {
+      pendingPreviewRequests.current.delete(memoryId);
+      setPendingPreviewIds(current => {
+        if (!current.has(memoryId)) {
+          return current;
+        }
+        const next = new Set(current);
+        next.delete(memoryId);
+        return next;
+      });
+    }
   };
 
   const manualInputPreviewCount = useMemo(() => {
@@ -184,6 +255,20 @@ const App: React.FC = () => {
     });
   }, []);
 
+  useEffect(() => {
+    setRecipeMemories(current => {
+      const needsMigration = current.some(memory => memory.journalPreviewImage === undefined);
+      if (!needsMigration) {
+        return current;
+      }
+
+      return current.map(memory => ({
+        ...memory,
+        journalPreviewImage: memory.journalPreviewImage ?? null,
+      }));
+    });
+  }, [setRecipeMemories]);
+
   const applyNutritionFrom = (
     ingredients: string[],
     options: {
@@ -225,26 +310,53 @@ const App: React.FC = () => {
       memory => memory.recipeName.trim().toLowerCase() === normalizedName
     );
 
+    const previewDetails = {
+      recipeName: recipe.recipeName,
+      matchedIngredients: recipe.matchedIngredients,
+      missingIngredients: recipe.missingIngredients,
+      artStyle: DEFAULT_PREVIEW_ART_STYLE,
+    };
+
     if (existing) {
+      const sanitizedMatched = sanitizeIngredients(recipe.matchedIngredients);
+      const sanitizedMissing = sanitizeIngredients(recipe.missingIngredients);
       const needsEnrichment =
         !existing.ingredients?.length || !existing.instructions?.length || !existing.videos?.length;
+
+      const previousMatchedSignature = createIngredientSignature(existing.matchedIngredients);
+      const previousMissingSignature = createIngredientSignature(existing.missingIngredients);
+      const newMatchedSignature = createIngredientSignature(sanitizedMatched, true);
+      const newMissingSignature = createIngredientSignature(sanitizedMissing, true);
+      const shouldRefreshPreview =
+        !existing.journalPreviewImage ||
+        previousMatchedSignature !== newMatchedSignature ||
+        previousMissingSignature !== newMissingSignature;
+
+      const updates: Partial<RecipeMemory> = {
+        matchedIngredients: sanitizedMatched,
+        missingIngredients: sanitizedMissing,
+      };
+
       if (needsEnrichment) {
-        setRecipeMemories(current =>
-          current.map(memory =>
-            memory.id === existing.id
-              ? {
-                  ...memory,
-                  ingredients: recipe.ingredientsNeeded,
-                  instructions: recipe.instructions,
-                  videos: recipe.videos,
-                }
-              : memory
-          )
-        );
+        updates.ingredients = recipe.ingredientsNeeded;
+        updates.instructions = recipe.instructions;
+        updates.videos = recipe.videos;
       }
+
+      setRecipeMemories(current =>
+        current.map(memory => (memory.id === existing.id ? { ...memory, ...updates } : memory))
+      );
+
+      if (shouldRefreshPreview) {
+        void requestPreviewForMemory(existing.id, previewDetails);
+      }
+
       setHighlightedMemoryId(existing.id);
       return { id: existing.id, isNew: false } as const;
     }
+
+    const sanitizedMatched = sanitizeIngredients(recipe.matchedIngredients);
+    const sanitizedMissing = sanitizeIngredients(recipe.missingIngredients);
 
     const newMemory: RecipeMemory = {
       id: uuidv4(),
@@ -252,8 +364,9 @@ const App: React.FC = () => {
       description: recipe.description,
       createdAt: new Date().toISOString(),
       note: '',
-      matchedIngredients: recipe.matchedIngredients,
-      missingIngredients: recipe.missingIngredients,
+      matchedIngredients: sanitizedMatched,
+      missingIngredients: sanitizedMissing,
+      journalPreviewImage: null,
       lastCookedAt: null,
       timesCooked: 0,
       ingredients: recipe.ingredientsNeeded,
@@ -263,6 +376,14 @@ const App: React.FC = () => {
 
     setRecipeMemories(current => [newMemory, ...current]);
     setHighlightedMemoryId(newMemory.id);
+
+    void requestPreviewForMemory(newMemory.id, {
+      recipeName: newMemory.recipeName,
+      matchedIngredients: sanitizedMatched,
+      missingIngredients: sanitizedMissing,
+      artStyle: DEFAULT_PREVIEW_ART_STYLE,
+    });
+
     return { id: newMemory.id, isNew: true } as const;
   };
 
@@ -273,8 +394,43 @@ const App: React.FC = () => {
   };
 
   const handleDeleteRecipeMemory = (id: string) => {
+    pendingPreviewRequests.current.delete(id);
+    setPendingPreviewIds(current => {
+      if (!current.has(id)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
     setRecipeMemories(current => current.filter(memory => memory.id !== id));
     setHighlightedMemoryId(current => (current === id ? null : current));
+  };
+
+  const handleRegenerateRecipePreview = (id: string) => {
+    if (pendingPreviewRequests.current.has(id)) {
+      return;
+    }
+
+    const target = recipeMemories.find(entry => entry.id === id);
+    if (!target) {
+      return;
+    }
+
+    const previewDetails = {
+      recipeName: target.recipeName,
+      matchedIngredients: target.matchedIngredients ?? [],
+      missingIngredients: target.missingIngredients ?? [],
+      artStyle: DEFAULT_PREVIEW_ART_STYLE,
+    };
+
+    setRecipeMemories(current =>
+      current.map(memory =>
+        memory.id === id ? { ...memory, journalPreviewImage: null } : memory
+      )
+    );
+
+    void requestPreviewForMemory(id, previewDetails);
   };
 
   const handleMarkRecipeCooked = (id: string) => {
@@ -745,9 +901,11 @@ const App: React.FC = () => {
               entries={recipeMemories}
               onUpdate={handleUpdateRecipeMemory}
               onDelete={handleDeleteRecipeMemory}
+              onRegeneratePreview={handleRegenerateRecipePreview}
               onMarkCooked={handleMarkRecipeCooked}
               onOpenDetails={handleOpenMemoryForCooking}
               highlightedId={highlightedMemoryId}
+              pendingPreviewIds={pendingPreviewIds}
             />
           </section>
         );
