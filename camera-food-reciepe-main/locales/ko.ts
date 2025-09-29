@@ -4,7 +4,7 @@ export const headerPlan = '계획';
 export const headerCook = '요리';
 
 export const introHeadline = '냉장플래너';
-export const introBreath = '심호흡하고 시작해볼까요';
+export const introBreath = '';
 export const introDescription =
   '냉장고 속 재료를 촬영하거나 선택해서 레시피, 영양 정보, 나만의 기록을 한 번에 관리해보세요.';
 export const introPrimaryAction = '시작하기';
