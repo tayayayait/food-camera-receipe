@@ -20,6 +20,7 @@ import NutritionSummaryCard from './components/NutritionSummaryCard';
 import BottomToolbar from './components/BottomToolbar';
 import RecipeExperienceModal from './components/RecipeExperienceModal';
 import { getRecipeSuggestions } from './services/geminiService';
+import { generateDesignPreview } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
@@ -28,14 +29,66 @@ import { estimateNutritionSummary } from './services/nutritionService';
 
 type ActiveView = 'intro' | 'pantry' | 'recipes' | 'nutrition' | 'journal';
 
-const IntroScreen: React.FC<{ onStart: () => void; onScan: () => void }> = ({ onStart, onScan }) => {
+interface IntroScreenProps {
+  onStart: () => void;
+  onScan: () => void;
+  moodboardImage?: string | null;
+  isMoodboardLoading?: boolean;
+  moodboardError?: string | null;
+}
+
+const IntroScreen: React.FC<IntroScreenProps> = ({
+  onStart,
+  onScan,
+  moodboardImage,
+  isMoodboardLoading = false,
+  moodboardError,
+}) => {
   const { t } = useLanguage();
 
+  const backgroundStyle = moodboardImage
+    ? {
+        backgroundImage: `url(${moodboardImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }
+    : undefined;
+
+  const wrapperClasses = [
+    'relative min-h-screen flex items-center justify-center px-6 py-16 transition-colors duration-500',
+    moodboardImage ? 'bg-[#EBF5FF]' : 'bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/40',
+  ].join(' ');
+
+  const overlayClasses = [
+    'pointer-events-none absolute inset-0 transition-opacity duration-500',
+    moodboardImage
+      ? 'bg-gradient-to-br from-[#EBF5FF]/85 via-[#E2F0FF]/78 to-[#7CB7FF]/50'
+      : isMoodboardLoading
+      ? 'bg-gradient-to-br from-[#EBF5FF]/90 via-[#E2F0FF]/80 to-[#7CB7FF]/55'
+      : 'bg-transparent',
+    isMoodboardLoading ? 'backdrop-blur-lg' : moodboardImage ? 'backdrop-blur-[2px]' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/40 flex items-center justify-center px-6 py-16">
+    <div className={wrapperClasses} style={backgroundStyle}>
+      <div className={overlayClasses} aria-hidden="true" />
+
       <div className="relative max-w-3xl w-full text-center space-y-10">
         <div className="pointer-events-none absolute -top-28 -left-32 h-64 w-64 rounded-full bg-[#E2F0FF]/70 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 h-48 w-48 rounded-full bg-[#7CB7FF]/30 blur-3xl" />
+        {(isMoodboardLoading || moodboardError) && (
+          <div className="absolute -top-20 right-0 flex w-full justify-end px-2">
+            <div
+              className={`rounded-2xl border border-white/60 bg-white/75 px-4 py-2 text-sm font-medium text-[#1F2E4C] shadow-[0_18px_30px_rgba(124,183,255,0.25)] ${
+                isMoodboardLoading ? 'backdrop-blur-md animate-pulse' : 'backdrop-blur-sm'
+              }`}
+            >
+              {isMoodboardLoading ? t('introMoodboardLoading') : moodboardError}
+            </div>
+          </div>
+        )}
         <div className="relative inline-block">
           <span
             className="absolute inset-0 translate-x-3 translate-y-3 text-[#E2F0FF] blur-[6px] opacity-70 select-none"
@@ -91,6 +144,9 @@ const App: React.FC = () => {
   const [nutritionContext, setNutritionContext] = useState<NutritionContext | null>(null);
   const [manualIngredientsInput, setManualIngredientsInput] = useState('');
   const [manualInputError, setManualInputError] = useState<string | null>(null);
+  const [moodboardImage, setMoodboardImage] = useState<string | null>(null);
+  const [isMoodboardLoading, setIsMoodboardLoading] = useState(false);
+  const [moodboardError, setMoodboardError] = useState<string | null>(null);
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
@@ -430,11 +486,14 @@ const App: React.FC = () => {
 
     try {
       setError(null);
+      setMoodboardError(null);
       const detectedIngredients = await analyzeIngredientsFromImage(photo);
       const sanitizedDetectedIngredients = sanitizeIngredients(detectedIngredients ?? []);
       if (!sanitizedDetectedIngredients || sanitizedDetectedIngredients.length === 0) {
         throw new Error('errorNoIngredientsFound');
       }
+      setIsMoodboardLoading(true);
+      setMoodboardImage(null);
       commitDetectedIngredients(sanitizedDetectedIngredients);
       setManualIngredientsInput(sanitizedDetectedIngredients.join('\n'));
       setManualInputError(null);
@@ -445,6 +504,17 @@ const App: React.FC = () => {
       setNutritionContext(null);
       setRecipeModalOpen(false);
       setActiveView('pantry');
+
+      try {
+        const previewUrl = await generateDesignPreview(sanitizedDetectedIngredients);
+        setMoodboardImage(previewUrl);
+      } catch (previewError) {
+        console.error('Failed to generate design preview:', previewError);
+        setMoodboardImage(null);
+        setMoodboardError(t('introMoodboardError'));
+      } finally {
+        setIsMoodboardLoading(false);
+      }
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorPhotoAnalysis';
       setSelectedIngredients([]);
@@ -455,6 +525,11 @@ const App: React.FC = () => {
       setNutritionIngredients([]);
       setNutritionContext(null);
       setManualInputError(null);
+      setMoodboardImage(null);
+      setIsMoodboardLoading(false);
+      if (messageKey === 'error_gemini_api_key') {
+        setMoodboardError(t('introMoodboardError'));
+      }
     } finally {
       setIsAnalyzingPhoto(false);
       setCameraOpen(false);
@@ -521,7 +596,15 @@ const App: React.FC = () => {
   };
 
   if (activeView === 'intro') {
-    return <IntroScreen onStart={() => setActiveView('pantry')} onScan={openCameraModal} />;
+    return (
+      <IntroScreen
+        onStart={() => setActiveView('pantry')}
+        onScan={openCameraModal}
+        moodboardImage={moodboardImage}
+        isMoodboardLoading={isMoodboardLoading}
+        moodboardError={moodboardError}
+      />
+    );
   }
 
   const handleOpenJournalView = () => {
