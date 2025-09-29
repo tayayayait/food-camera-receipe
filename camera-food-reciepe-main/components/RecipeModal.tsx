@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   RecipeRecommendation,
   NutritionSummary,
@@ -12,6 +12,10 @@ import {
   recipeProviderNames,
   type RecipeProviderLinkResult,
 } from '../services/recipeLinkService';
+import {
+  fetchRecipePreviewImage,
+  getRecipePreviewCacheKey,
+} from '../services/designPreviewService';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -76,6 +80,35 @@ const LoadingSkeleton: React.FC = () => (
   </div>
 );
 
+type PreviewState = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  image?: string;
+  error?: string;
+};
+
+const REFRESH_DEBOUNCE_MS = 600;
+
+const getPreviewKey = (recipe: RecipeRecommendation): string => getRecipePreviewCacheKey(recipe);
+
+const RefreshIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    className="h-4 w-4"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="23 4 23 10 17 10" />
+    <polyline points="1 20 1 14 7 14" />
+    <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10" />
+    <path d="M20.49 15A9 9 0 0 1 6.36 18.36L1 14" />
+  </svg>
+);
+
 const RecipeModal: React.FC<RecipeModalProps> = ({
   isOpen,
   onClose,
@@ -90,16 +123,44 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   onViewRecipeNutrition,
 }) => {
   const { t } = useLanguage();
-  if (!isOpen) return null;
 
   const [justSavedState, setJustSavedState] = useState<{ name: string; isNew: boolean } | null>(null);
   const [providerLookups, setProviderLookups] = useState<
     Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }>
   >({});
+  const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
+  const refreshTimersRef = useRef<Record<string, number | undefined>>({});
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      Object.keys(refreshTimersRef.current).forEach(key => {
+        const timer = refreshTimersRef.current[key];
+        if (typeof timer === 'number') {
+          window.clearTimeout(timer);
+        }
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
       setJustSavedState(null);
+      setProviderLookups({});
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      Object.keys(refreshTimersRef.current).forEach(key => {
+        const timer = refreshTimersRef.current[key];
+        if (typeof timer === 'number') {
+          window.clearTimeout(timer);
+        }
+        delete refreshTimersRef.current[key];
+      });
+      return;
     }
   }, [isOpen]);
 
@@ -117,13 +178,140 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     [savedRecipeNames]
   );
 
-  const nutritionContextLabel = nutritionContext
-    ? nutritionContext.type === 'scan'
-      ? t('nutritionContextScan')
-      : nutritionContext.type === 'recipe'
-        ? t('nutritionContextRecipe', { name: nutritionContext.label })
-        : t('nutritionContextMemory', { name: nutritionContext.label })
-    : null;
+  const nutritionContextLabel = useMemo(() => {
+    if (!nutritionContext) {
+      return null;
+    }
+
+    if (nutritionContext.type === 'scan') {
+      return t('nutritionContextScan');
+    }
+
+    if (nutritionContext.type === 'recipe') {
+      return t('nutritionContextRecipe', { name: nutritionContext.label });
+    }
+
+    return t('nutritionContextMemory', { name: nutritionContext.label });
+  }, [nutritionContext, t]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setPreviews(prev => {
+      let changed = false;
+      const nextState: Record<string, PreviewState> = { ...prev };
+      const activeKeys = new Set(recipes.map(recipe => getPreviewKey(recipe)));
+
+      Object.keys(nextState).forEach(key => {
+        if (!activeKeys.has(key)) {
+          delete nextState[key];
+          changed = true;
+        }
+      });
+
+      recipes.forEach(recipe => {
+        const key = getPreviewKey(recipe);
+        const current = nextState[key];
+
+        if (recipe.previewImage) {
+          if (!current || current.status !== 'success' || current.image !== recipe.previewImage) {
+            nextState[key] = { status: 'success', image: recipe.previewImage };
+            changed = true;
+          }
+          return;
+        }
+
+        if (recipe.previewStatus === 'error') {
+          if (!current || current.status !== 'error') {
+            nextState[key] = { status: 'error', error: t('recipeModalPreviewError') };
+            changed = true;
+          }
+          return;
+        }
+
+        if (recipe.previewStatus === 'loading') {
+          if (!current || current.status !== 'loading') {
+            nextState[key] = { status: 'loading', image: current?.image };
+            changed = true;
+          }
+          return;
+        }
+
+        if (!current) {
+          nextState[key] = { status: 'idle' };
+          changed = true;
+        }
+      });
+
+      return changed ? nextState : prev;
+    });
+  }, [isOpen, recipes, t]);
+
+  const requestPreview = useCallback(
+    async (recipe: RecipeRecommendation, options?: { forceRefresh?: boolean }) => {
+      const key = getPreviewKey(recipe);
+
+      setPreviews(prev => ({
+        ...prev,
+        [key]: {
+          status: 'loading',
+          image: options?.forceRefresh ? undefined : prev[key]?.image,
+        },
+      }));
+
+      try {
+        const imageUrl = await fetchRecipePreviewImage(recipe, {
+          forceRefresh: options?.forceRefresh ?? false,
+        });
+
+        if (!isMountedRef.current) {
+          return imageUrl;
+        }
+
+        setPreviews(prev => ({
+          ...prev,
+          [key]: { status: 'success', image: imageUrl },
+        }));
+
+        return imageUrl;
+      } catch (error) {
+        if (!isMountedRef.current) {
+          throw error;
+        }
+
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : t('recipeModalPreviewError');
+
+        setPreviews(prev => ({
+          ...prev,
+          [key]: { status: 'error', error: message },
+        }));
+
+        throw error;
+      }
+    },
+    [t]
+  );
+
+  useEffect(() => {
+    if (!isOpen || recipes.length === 0) {
+      return;
+    }
+
+    recipes.forEach(recipe => {
+      const key = getPreviewKey(recipe);
+      const state = previews[key];
+      if (state && (state.status === 'loading' || state.status === 'success')) {
+        return;
+      }
+
+      void requestPreview(recipe);
+    });
+  }, [isOpen, previews, recipes, requestPreview]);
 
   useEffect(() => {
     if (!isOpen || recipes.length === 0) {
@@ -218,6 +406,31 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
       controller.abort();
     };
   }, [ingredients, isOpen, recipes]);
+
+  const handleRefreshPreview = useCallback(
+    (recipe: RecipeRecommendation) => {
+      const key = getPreviewKey(recipe);
+      const current = previews[key];
+      if (current?.status === 'loading') {
+        return;
+      }
+
+      const timers = refreshTimersRef.current;
+      if (timers[key] !== undefined) {
+        window.clearTimeout(timers[key]);
+      }
+
+      timers[key] = window.setTimeout(() => {
+        timers[key] = undefined;
+        void requestPreview(recipe, { forceRefresh: true });
+      }, REFRESH_DEBOUNCE_MS);
+    },
+    [previews, requestPreview]
+  );
+
+  if (!isOpen) {
+    return null;
+  }
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
     const result = onSaveRecipeToJournal(recipe);
@@ -338,9 +551,59 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const providerState = providerLookups[recipe.recipeName];
                 const providerStatus = providerState?.status ?? 'loading';
                 const providerResults = providerState?.results ?? [];
+                const previewKey = getPreviewKey(recipe);
+                const previewState = previews[previewKey];
+                const isPreviewLoading = !previewState || previewState.status === 'idle' || previewState.status === 'loading';
+                const isPreviewError = previewState?.status === 'error';
+                const isPreviewSuccess = previewState?.status === 'success' && Boolean(previewState.image);
+                const previewImage = previewState?.image;
+                const previewErrorMessage = previewState?.error ?? t('recipeModalPreviewError');
 
                 return (
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+                    <div className="relative">
+                      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-gray-100 bg-gray-100">
+                        {isPreviewSuccess && previewImage ? (
+                          <img
+                            src={previewImage}
+                            alt={`${recipe.recipeName} plating preview`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : isPreviewError ? (
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+                            <p className="text-xs font-medium text-gray-500">{previewErrorMessage}</p>
+                            <button
+                              type="button"
+                              onClick={() => handleRefreshPreview(recipe)}
+                              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/10"
+                            >
+                              <RefreshIcon /> {t('recipeModalPreviewRetry')}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-6 text-center">
+                            <div className="h-12 w-12 rounded-full bg-white/70 animate-pulse" />
+                            <p className="text-xs font-medium text-gray-500">{t('recipeModalPreviewLoading')}</p>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRefreshPreview(recipe)}
+                        disabled={isPreviewLoading}
+                        className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full border border-white/70 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition backdrop-blur ${
+                          isPreviewLoading
+                            ? 'cursor-not-allowed bg-white/60 text-gray-400'
+                            : 'bg-white/80 text-gray-600 hover:bg-white'
+                        }`}
+                        aria-label={t('recipeModalRefreshPreview')}
+                      >
+                        <span className={`${isPreviewLoading ? 'animate-spin' : ''}`}>
+                          <RefreshIcon />
+                        </span>
+                        <span>{t('recipeModalRefreshPreview')}</span>
+                      </button>
+                    </div>
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                       <div className="space-y-3 flex-1">
                         <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>

@@ -111,6 +111,10 @@ export const recipeModalProviderError = '{{provider}}에서 바로 열 수 있�
 export const recipeModalProviderErrorWithReason = '{{provider}}에서 바로 열 수 있는 링크를 찾지 못했어요. {{reason}}';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
+export const recipeModalPreviewLoading = '맛있어 보이는 미리보기를 준비하고 있어요...';
+export const recipeModalPreviewError = '프리뷰 이미지를 불러오지 못했어요.';
+export const recipeModalPreviewRetry = '다시 불러오기';
+export const recipeModalRefreshPreview = '미리보기 새로고침';
 
 export const cameraModalErrorUnsupported =
   '이 기기에서는 카메라를 사용할 수 없어요. 지원되는 스마트폰이나 태블릿에서 다시 시도해주세요.';

@@ -45,6 +45,8 @@ export interface RecipeRecommendation extends RecipeWithVideos {
     missingIngredients: string[];
     matchedIngredients: string[];
     isFullyMatched: boolean;
+    previewImage?: string;
+    previewStatus?: 'idle' | 'loading' | 'error';
 }
 
 export interface NutrientProfile {
