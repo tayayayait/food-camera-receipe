@@ -9,6 +9,8 @@ export const introDescription =
   '냉장고 속 재료를 촬영하거나 선택해서 레시피, 영양 정보, 나만의 기록을 한 번에 관리해보세요.';
 export const introPrimaryAction = '시작하기';
 export const introSecondaryAction = '냉장고 스캔하기';
+export const introMoodboardLoading = '분위기 미리보기를 준비하고 있어요...';
+export const introMoodboardError = '분위기 미리보기를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 
 export const navPantry = '스캔결과';
 export const navRecipes = '레시피';
