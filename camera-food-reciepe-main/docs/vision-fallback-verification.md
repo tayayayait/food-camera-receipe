@@ -11,7 +11,7 @@
 1. Launched the Vite dev server.
 2. Used Playwright to open the local app and intercept network calls.
 3. Forced the external vision endpoint (`VISION_API_URL`) to return an HTTP 500 response.
-4. Verified that `analyzeIngredientsFromImage` retried with Gemini by observing the subsequent request to `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent`.
+4. Verified that `analyzeIngredientsFromImage` retried with Gemini by observing the subsequent request to `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`.
 5. Confirmed the Gemini mock response provided parsed ingredients and no `error_vision_fetch` surfaced in the UI.
 
 ## Result
