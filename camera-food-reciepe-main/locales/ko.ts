@@ -90,6 +90,10 @@ export const recipeModalViewRecipe = '자세한 레시피 보기 →';
 export const recipeModalDetectedIngredientsTitle = '스캔된 재료 확인';
 export const recipeModalDetectedIngredientsDescription =
   '최근 스캔에서 인식한 재료예요. 필요한 재료가 빠지지 않았는지 가볍게 확인해보세요.';
+export const recipeModalPreviewLoading = '플레이팅 미리보기를 준비하고 있어요...';
+export const recipeModalPreviewError = '미리보기를 불러오지 못했어요.';
+export const recipeModalPreviewRetry = '다시 시도';
+export const recipeModalPreviewRefresh = '미리보기 새로고침';
 export const recipeModalNutritionSnapshotTitle = '현재 영양 요약';
 export const recipeModalNutritionSnapshotSubtitle = '감지된 재료 {{count}}개 기준';
 export const recipeModalNutritionSnapshotHint = '참고용 수치예요. 레시피별로 “영양 보기”를 눌러 더 정확한 추정을 확인하세요.';
