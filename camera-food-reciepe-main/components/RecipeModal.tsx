@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type {
   RecipeRecommendation,
   NutritionSummary,
@@ -12,6 +12,11 @@ import {
   recipeProviderNames,
   type RecipeProviderLinkResult,
 } from '../services/recipeLinkService';
+import {
+  clearRecipePreviewCache,
+  fetchRecipePreviewImage,
+  getRecipePreviewCacheKey,
+} from '../services/designPreviewService';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -52,6 +57,19 @@ const extractStepSummary = (instruction: string) => {
 
   return { summary: cleaned, details: '' };
 };
+
+type PreviewState = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  image?: string;
+};
+
+interface PreviewRequestOptions {
+  force?: boolean;
+  clearImage?: boolean;
+  skipStatePriming?: boolean;
+}
+
+const PREVIEW_REFRESH_DEBOUNCE_MS = 900;
 
 interface RecipeModalProps {
   isOpen: boolean;
@@ -96,6 +114,22 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const [providerLookups, setProviderLookups] = useState<
     Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }>
   >({});
+  const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
+  const previewsRef = useRef<Record<string, PreviewState>>({});
+  const refreshTimeoutsRef = useRef<Record<string, number>>({});
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    previewsRef.current = previews;
+  }, [previews]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      Object.values(refreshTimeoutsRef.current).forEach(timeoutId => window.clearTimeout(timeoutId));
+    };
+  }, []);
 
   useEffect(() => {
     if (!isOpen) {
@@ -124,6 +158,116 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         ? t('nutritionContextRecipe', { name: nutritionContext.label })
         : t('nutritionContextMemory', { name: nutritionContext.label })
     : null;
+
+  const previewKeyForRecipe = useCallback((recipe: RecipeRecommendation) => getRecipePreviewCacheKey(recipe), []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPreviews({});
+      return;
+    }
+
+    setPreviews(prev => {
+      const allowedKeys = new Set(recipes.map(previewKeyForRecipe));
+      const next: Record<string, PreviewState> = {};
+      let hasChanges = Object.keys(prev).length !== allowedKeys.size;
+
+      allowedKeys.forEach(key => {
+        if (prev[key]) {
+          next[key] = prev[key];
+        } else {
+          hasChanges = true;
+        }
+      });
+
+      return hasChanges ? next : prev;
+    });
+  }, [isOpen, previewKeyForRecipe, recipes]);
+
+  const requestPreview = useCallback(
+    (recipe: RecipeRecommendation, options?: PreviewRequestOptions) => {
+      const { force = false, clearImage = false, skipStatePriming = false } = options ?? {};
+      const key = previewKeyForRecipe(recipe);
+      const current = previewsRef.current[key];
+
+      if (!force && current && (current.status === 'loading' || current.status === 'success')) {
+        return;
+      }
+
+      if (!skipStatePriming) {
+        setPreviews(prev => ({
+          ...prev,
+          [key]: {
+            status: 'loading',
+            image: clearImage ? undefined : prev[key]?.image,
+          },
+        }));
+      }
+
+      fetchRecipePreviewImage(recipe)
+        .then(image => {
+          if (!isMountedRef.current) {
+            return;
+          }
+          setPreviews(prev => ({
+            ...prev,
+            [key]: {
+              status: 'success',
+              image,
+            },
+          }));
+        })
+        .catch(error => {
+          if (!isMountedRef.current) {
+            return;
+          }
+          console.error('Failed to fetch recipe preview image', error);
+          setPreviews(prev => ({
+            ...prev,
+            [key]: {
+              status: 'error',
+              image: prev[key]?.image,
+            },
+          }));
+        });
+    },
+    [previewKeyForRecipe]
+  );
+
+  useEffect(() => {
+    if (!isOpen || recipes.length === 0) {
+      return;
+    }
+
+    recipes.forEach(recipe => {
+      requestPreview(recipe);
+    });
+  }, [isOpen, recipes, requestPreview]);
+
+  const handleRefreshPreview = useCallback(
+    (recipe: RecipeRecommendation) => {
+      const key = previewKeyForRecipe(recipe);
+      clearRecipePreviewCache(recipe);
+
+      setPreviews(prev => ({
+        ...prev,
+        [key]: {
+          status: 'loading',
+          image: undefined,
+        },
+      }));
+
+      if (refreshTimeoutsRef.current[key]) {
+        window.clearTimeout(refreshTimeoutsRef.current[key]);
+      }
+
+      refreshTimeoutsRef.current[key] = window.setTimeout(() => {
+        requestPreview(recipe, { force: true, clearImage: true, skipStatePriming: true });
+        delete refreshTimeoutsRef.current[key];
+      }, PREVIEW_REFRESH_DEBOUNCE_MS);
+    },
+    [previewKeyForRecipe, requestPreview]
+  );
 
   useEffect(() => {
     if (!isOpen || recipes.length === 0) {
@@ -338,212 +482,262 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const providerState = providerLookups[recipe.recipeName];
                 const providerStatus = providerState?.status ?? 'loading';
                 const providerResults = providerState?.results ?? [];
+                const previewKey = previewKeyForRecipe(recipe);
+                const previewState = previews[previewKey] ?? { status: 'idle', image: undefined };
+                const isPreviewLoading = previewState.status === 'loading';
+                const isPreviewError = previewState.status === 'error';
+                const previewImage = previewState.status === 'success' ? previewState.image : undefined;
 
                 return (
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                      <div className="space-y-3 flex-1">
-                        <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
-                        <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
-
-                        <div className="mt-2 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                          <div>
-                            <p className="text-sm font-semibold text-brand-blue">{t('recipeModalJournalTitle')}</p>
-                            <p className="text-xs text-brand-blue/70">{t('recipeModalJournalSubtitle')}</p>
+                    <div className="space-y-4">
+                      <div className="relative overflow-hidden rounded-2xl border border-gray-100 bg-gray-100">
+                        {isPreviewLoading && (
+                          <div className="flex h-48 w-full items-center justify-center bg-gradient-to-br from-gray-100 via-gray-200 to-gray-100 animate-pulse text-xs font-medium text-gray-500">
+                            {t('recipeModalPreviewLoading')}
                           </div>
-                          <div className="flex flex-col items-end gap-2">
+                        )}
+                        {previewImage && !isPreviewLoading && (
+                          <img
+                            src={previewImage}
+                            alt={`${recipe.recipeName} plating preview`}
+                            className="h-48 w-full object-cover"
+                          />
+                        )}
+                        {isPreviewError && !previewImage && !isPreviewLoading && (
+                          <div className="flex h-48 w-full flex-col items-center justify-center gap-2 bg-gray-50 text-center text-sm text-gray-500">
+                            <p>{t('recipeModalPreviewError')}</p>
                             <button
                               type="button"
-                              onClick={() => handleSaveToJournal(recipe)}
-                              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow transition ${
-                                isSaved
-                                  ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                                  : 'bg-brand-blue text-white hover:bg-blue-600'
-                              }`}
+                              onClick={() => handleRefreshPreview(recipe)}
+                              className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-gray-600 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-100"
                             >
-                              {isSaved ? t('recipeModalSaveButtonSaved') : t('recipeModalSaveButton')}
+                              {t('recipeModalPreviewRetry')}
                             </button>
-                            {isJustSaved ? (
-                              <p className={`text-xs ${justSavedState?.isNew ? 'text-emerald-600' : 'text-gray-500'}`}>
-                                {justSavedState?.isNew
-                                  ? t('recipeModalSaveNewSuccess')
-                                  : t('recipeModalSaveExisting')}
-                              </p>
-                            ) : (
-                              isSaved && (
-                                <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
-                              )
-                            )}
                           </div>
+                        )}
+                        {!previewImage && !isPreviewLoading && !isPreviewError && (
+                          <div className="flex h-48 w-full items-center justify-center bg-gray-100 text-xs font-medium text-gray-500">
+                            {t('recipeModalPreviewLoading')}
+                          </div>
+                        )}
+                        <div className="absolute right-3 top-3 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRefreshPreview(recipe)}
+                            disabled={isPreviewLoading}
+                            className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold text-gray-600 shadow-sm ring-1 ring-white transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label={t('recipeModalPreviewRefresh')}
+                          >
+                            ↻ {t('recipeModalPreviewRefresh')}
+                          </button>
                         </div>
+                      </div>
 
-                        {recipe.instructions.length > 0 && (
-                          <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
-                                <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
-                              </div>
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div className="space-y-3 flex-1">
+                          <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
+                          <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
+
+                          <div className="mt-2 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-brand-blue">{t('recipeModalJournalTitle')}</p>
+                              <p className="text-xs text-brand-blue/70">{t('recipeModalJournalSubtitle')}</p>
                             </div>
-                            <div className="mt-4 grid gap-3 md:grid-cols-2">
-                              {recipe.instructions.map((instruction, instructionIndex) => {
-                                const { summary, details } = extractStepSummary(instruction);
-                                return (
-                                  <div
-                                    key={`${recipe.recipeName}-instruction-${instructionIndex}`}
-                                    className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
-                                        {instructionIndex + 1}
-                                      </span>
-                                      <div className="space-y-1">
-                                        <p className="text-sm font-semibold text-gray-800">{summary}</p>
-                                        {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                            <div className="flex flex-col items-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveToJournal(recipe)}
+                                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow transition ${
+                                  isSaved
+                                    ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                                    : 'bg-brand-blue text-white hover:bg-blue-600'
+                                }`}
+                              >
+                                {isSaved ? t('recipeModalSaveButtonSaved') : t('recipeModalSaveButton')}
+                              </button>
+                              {isJustSaved ? (
+                                <p className={`text-xs ${justSavedState?.isNew ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                  {justSavedState?.isNew
+                                    ? t('recipeModalSaveNewSuccess')
+                                    : t('recipeModalSaveExisting')}
+                                </p>
+                              ) : (
+                                isSaved && (
+                                  <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
+                                )
+                              )}
+                            </div>
+                          </div>
+
+                          {recipe.instructions.length > 0 && (
+                            <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
+                              <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                  <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
+                                  <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                                </div>
+                              </div>
+                              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                {recipe.instructions.map((instruction, instructionIndex) => {
+                                  const { summary, details } = extractStepSummary(instruction);
+                                  return (
+                                    <div
+                                      key={`${recipe.recipeName}-instruction-${instructionIndex}`}
+                                      className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
+                                    >
+                                      <div className="flex items-start gap-3">
+                                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
+                                          {instructionIndex + 1}
+                                        </span>
+                                        <div className="space-y-1">
+                                          <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                          {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                                        </div>
                                       </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
+                                  );
+                                })}
+                              </div>
+                              <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
+                                {t('recipeModalStepByStepHint')}
+                              </p>
                             </div>
-                            <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
-                              {t('recipeModalStepByStepHint')}
-                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-72">
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                              recipe.isFullyMatched
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            {recipe.isFullyMatched
+                              ? t('recipeModalBadgeReady')
+                              : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
+                          </span>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+                            {t('recipeModalSearchProvidersLabel')}
+                          </p>
+                          <div className="flex w-full flex-col gap-2 md:items-end">
+                            {providerStatus === 'loading' && (
+                              <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-blue animate-pulse">
+                                {t('recipeModalProviderLoading')}
+                              </span>
+                            )}
+                            {providerStatus === 'loaded' &&
+                              providerResults.map(result =>
+                                result.status === 'success' ? (
+                                  <a
+                                    key={`${result.provider}-${recipe.recipeName}`}
+                                    href={result.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
+                                  >
+                                    <span>{result.provider}</span>
+                                    <span className="text-[11px] font-normal text-brand-blue/70">
+                                      {result.title}
+                                    </span>
+                                  </a>
+                                ) : (
+                                  <div
+                                    key={`${result.provider}-${recipe.recipeName}`}
+                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right"
+                                  >
+                                    {result.message
+                                      ? t('recipeModalProviderErrorWithReason', {
+                                          provider: result.provider,
+                                          reason: result.message,
+                                        })
+                                      : t('recipeModalProviderError', { provider: result.provider })}
+                                  </div>
+                                )
+                              )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
+                        {recipe.ingredientsNeeded.length === 0 ? (
+                          <p className="text-xs text-gray-500 mt-2 italic">{t('recipeModalNoExtraIngredients')}</p>
+                        ) : recipe.isFullyMatched ? (
+                          <p className="text-xs font-semibold text-emerald-600 mt-2">{t('recipeModalAllIngredientsOnHand')}</p>
+                        ) : (
+                          <div className="mt-3 space-y-3">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">{t('recipeModalMissingIngredientsLabel')}</p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {recipe.missingIngredients.map(ingredient => (
+                                  <span
+                                    key={`missing-${recipe.recipeName}-${ingredient}`}
+                                    className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm border border-amber-100"
+                                  >
+                                    {ingredient}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            {recipe.matchedIngredients.length > 0 && (
+                              <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{t('recipeModalMatchedIngredientsLabel')}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {recipe.matchedIngredients.map(ingredient => (
+                                    <span
+                                      key={`matched-${recipe.recipeName}-${ingredient}`}
+                                      className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100"
+                                    >
+                                      {ingredient}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                      <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-72">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                            recipe.isFullyMatched
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-amber-50 text-amber-700'
-                          }`}
-                        >
-                          {recipe.isFullyMatched
-                            ? t('recipeModalBadgeReady')
-                            : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
-                        </span>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                          {t('recipeModalSearchProvidersLabel')}
-                        </p>
-                        <div className="flex w-full flex-col gap-2 md:items-end">
-                          {providerStatus === 'loading' && (
-                            <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-blue animate-pulse">
-                              {t('recipeModalProviderLoading')}
-                            </span>
-                          )}
-                          {providerStatus === 'loaded' &&
-                            providerResults.map(result =>
-                              result.status === 'success' ? (
-                                <a
-                                  key={`${result.provider}-${recipe.recipeName}`}
-                                  href={result.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
-                                >
-                                  <span>{result.provider}</span>
-                                  <span className="text-[11px] font-normal text-brand-blue/70">
-                                    {result.title}
-                                  </span>
-                                </a>
-                              ) : (
-                                <div
-                                  key={`${result.provider}-${recipe.recipeName}`}
-                                  className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right"
-                                >
-                                  {result.message
-                                    ? t('recipeModalProviderErrorWithReason', {
-                                        provider: result.provider,
-                                        reason: result.message,
-                                      })
-                                    : t('recipeModalProviderError', { provider: result.provider })}
-                                </div>
-                              )
-                            )}
-                        </div>
-                      </div>
-                    </div>
 
-                  <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
-                    {recipe.ingredientsNeeded.length === 0 ? (
-                      <p className="text-xs text-gray-500 mt-2 italic">{t('recipeModalNoExtraIngredients')}</p>
-                    ) : recipe.isFullyMatched ? (
-                      <p className="text-xs font-semibold text-emerald-600 mt-2">{t('recipeModalAllIngredientsOnHand')}</p>
-                    ) : (
-                      <div className="mt-3 space-y-3">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">{t('recipeModalMissingIngredientsLabel')}</p>
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {recipe.missingIngredients.map(ingredient => (
-                              <span
-                                key={`missing-${recipe.recipeName}-${ingredient}`}
-                                className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm border border-amber-100"
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-blue/5 border border-brand-blue/15 px-3 py-2">
+                        <p className="text-xs text-brand-blue/70">{t('recipeModalRecipeNutritionHint')}</p>
+                        <button
+                          type="button"
+                          onClick={() => onViewRecipeNutrition(recipe)}
+                          className="inline-flex items-center gap-2 rounded-xl bg-brand-blue text-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-blue-600 transition"
+                        >
+                          <PulseIcon /> {t('recipeModalRecipeNutritionButton')}
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalWatchVideos')}</h4>
+                        {recipe.videos.length > 0 ? (
+                          <div className="grid gap-4 md:grid-cols-2">
+                            {recipe.videos.map(video => (
+                              <a
+                                key={video.id}
+                                href={video.videoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="group block bg-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
                               >
-                                {ingredient}
-                              </span>
+                                <div className="relative aspect-video overflow-hidden">
+                                  <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">YouTube</span>
+                                </div>
+                                <div className="p-4 space-y-1">
+                                  <p className="text-sm font-semibold text-gray-800">{video.title}</p>
+                                  <p className="text-xs text-gray-500">{video.channelTitle}</p>
+                                </div>
+                              </a>
                             ))}
                           </div>
-                        </div>
-                        {recipe.matchedIngredients.length > 0 && (
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{t('recipeModalMatchedIngredientsLabel')}</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {recipe.matchedIngredients.map(ingredient => (
-                                <span
-                                  key={`matched-${recipe.recipeName}-${ingredient}`}
-                                  className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100"
-                                >
-                                  {ingredient}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400">{t('recipeModalNoVideos')}</p>
                         )}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-blue/5 border border-brand-blue/15 px-3 py-2">
-                    <p className="text-xs text-brand-blue/70">{t('recipeModalRecipeNutritionHint')}</p>
-                    <button
-                      type="button"
-                      onClick={() => onViewRecipeNutrition(recipe)}
-                      className="inline-flex items-center gap-2 rounded-xl bg-brand-blue text-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-blue-600 transition"
-                    >
-                      <PulseIcon /> {t('recipeModalRecipeNutritionButton')}
-                    </button>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalWatchVideos')}</h4>
-                    {recipe.videos.length > 0 ? (
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {recipe.videos.map(video => (
-                          <a
-                            key={video.id}
-                            href={video.videoUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="group block bg-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
-                          >
-                            <div className="relative aspect-video overflow-hidden">
-                              <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                              <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">YouTube</span>
-                            </div>
-                            <div className="p-4 space-y-1">
-                              <p className="text-sm font-semibold text-gray-800">{video.title}</p>
-                              <p className="text-xs text-gray-500">{video.channelTitle}</p>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-gray-400">{t('recipeModalNoVideos')}</p>
-                    )}
-                  </div>
+                    </div>
                   </article>
                 );
               })}
