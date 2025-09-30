@@ -134,4 +134,20 @@ describe('getRecipeVideos', () => {
     expect(videos).toHaveLength(1);
     expect(videos[0]?.id).toBe('positive');
   });
+
+  it('throws an explicit error when the API key is missing', async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    delete process.env.API_KEY;
+    const fetchSpy = vi.fn();
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const { getRecipeVideos } = await import('./videoService');
+
+    await expect(getRecipeVideos('Bibimbap', ['rice'])).rejects.toThrowError(
+      new Error('error_youtube_api_key')
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    process.env.YOUTUBE_API_KEY = 'test-api-key';
+  });
 });
