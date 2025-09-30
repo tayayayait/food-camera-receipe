@@ -11,6 +11,7 @@ import {
   clearRecipePreviewCache,
   fetchRecipePreviewImage,
   getRecipePreviewCacheKey,
+  isDesignPreviewSupported,
 } from '../services/designPreviewService';
 import { parseIngredientInput } from '../services/ingredientParser';
 
@@ -55,7 +56,7 @@ const extractStepSummary = (instruction: string) => {
 };
 
 type PreviewState = {
-  status: 'idle' | 'loading' | 'success' | 'error';
+  status: 'idle' | 'loading' | 'success' | 'error' | 'unsupported';
   image?: string;
 };
 
@@ -211,6 +212,17 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         return;
       }
 
+      if (!isDesignPreviewSupported) {
+        setPreviews(prev => ({
+          ...prev,
+          [key]: {
+            status: 'unsupported',
+            image: undefined,
+          },
+        }));
+        return;
+      }
+
       if (!skipStatePriming) {
         setPreviews(prev => ({
           ...prev,
@@ -264,6 +276,18 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const handleRefreshPreview = useCallback(
     (recipe: RecipeRecommendation) => {
       const key = previewKeyForRecipe(recipe);
+
+      if (!isDesignPreviewSupported) {
+        setPreviews(prev => ({
+          ...prev,
+          [key]: {
+            status: 'unsupported',
+            image: undefined,
+          },
+        }));
+        return;
+      }
+
       clearRecipePreviewCache(recipe);
 
       setPreviews(prev => ({
@@ -502,6 +526,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const previewState = previews[previewKey] ?? { status: 'idle', image: undefined };
                 const isPreviewLoading = previewState.status === 'loading';
                 const isPreviewError = previewState.status === 'error';
+                const isPreviewUnsupported = previewState.status === 'unsupported';
                 const previewImage = previewState.status === 'success' ? previewState.image : undefined;
                 const providerVideos = recipe.videos;
 
@@ -521,7 +546,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             className="h-48 w-full object-cover"
                           />
                         )}
-                        {isPreviewError && !previewImage && !isPreviewLoading && (
+                        {isPreviewUnsupported && !previewImage && !isPreviewLoading && (
+                          <div className="flex h-48 w-full items-center justify-center bg-gray-50 px-6 text-center text-sm font-medium text-gray-500">
+                            {t('error_gemini_api_key')}
+                          </div>
+                        )}
+                        {isPreviewError && !previewImage && !isPreviewLoading && !isPreviewUnsupported && (
                           <div className="flex h-48 w-full flex-col items-center justify-center gap-2 bg-gray-50 text-center text-sm text-gray-500">
                             <p>{t('recipeModalPreviewError')}</p>
                             <button
@@ -533,7 +563,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             </button>
                           </div>
                         )}
-                        {!previewImage && !isPreviewLoading && !isPreviewError && (
+                        {!previewImage && !isPreviewLoading && !isPreviewError && !isPreviewUnsupported && (
                           <div className="flex h-48 w-full items-center justify-center bg-gray-100 text-xs font-medium text-gray-500">
                             {t('recipeModalPreviewLoading')}
                           </div>
@@ -542,7 +572,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRefreshPreview(recipe)}
-                            disabled={isPreviewLoading}
+                            disabled={isPreviewLoading || isPreviewUnsupported}
                             className="inline-flex items-center gap-1.5 rounded-full bg-white/85 px-3 py-1 text-[11px] font-semibold text-gray-600 shadow-sm ring-1 ring-white transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
                             aria-label={t('recipeModalPreviewRefresh')}
                           >
