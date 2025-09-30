@@ -73,12 +73,21 @@ async function analyzeWithGemini(image: Blob): Promise<string[]> {
       },
     });
 
+    type GeminiResponse = {
+      text?: string | (() => string);
+      output_text?: string;
+    };
+
+    const typedResponse = response as GeminiResponse;
+
     let jsonText: string | undefined;
 
-    if (typeof response.text === 'string') {
-      jsonText = response.text;
-    } else if (typeof response.output_text === 'string') {
-      jsonText = response.output_text;
+    if (typeof typedResponse.text === 'function') {
+      jsonText = typedResponse.text();
+    } else if (typeof typedResponse.text === 'string') {
+      jsonText = typedResponse.text;
+    } else if (typeof typedResponse.output_text === 'string') {
+      jsonText = typedResponse.output_text;
     }
 
     const trimmedJson = jsonText?.trim();

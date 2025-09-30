@@ -95,3 +95,11 @@ export interface RecipeMemory {
     videos?: RecipeVideo[];
     journalPreviewImage?: string | null;
 }
+
+export interface CookingLog {
+  id: string;
+  createdAt: string;
+  title: string;
+  notes: string;
+  recipeName?: string;
+}
