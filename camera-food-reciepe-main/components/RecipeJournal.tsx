@@ -28,7 +28,9 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   const [draftNotes, setDraftNotes] = useState<Record<string, string>>({});
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [thumbnailUrls, setThumbnailUrls] = useState<Record<string, string>>({});
-  const thumbnailCacheRef = useRef<Record<string, { source: string; url: string; revoke: boolean }>>({});
+
+  type ThumbnailCacheEntry = { source: string; url: string; revoke: boolean };
+  const thumbnailCacheRef = useRef<Record<string, ThumbnailCacheEntry>>({});
 
   useEffect(() => {
     setDraftNotes(prev => {
@@ -79,7 +81,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   useEffect(() => {
     let isActive = true;
     const previousCache = thumbnailCacheRef.current;
-    const nextCache: Record<string, { source: string; url: string; revoke: boolean }> = {};
+    const nextCache: Record<string, ThumbnailCacheEntry> = {};
 
     const tasks = entries.map(async entry => {
       const source = entry.journalPreviewImage ?? '';
@@ -114,7 +116,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
 
     Promise.all(tasks).then(() => {
       if (!isActive) {
-        Object.values(nextCache).forEach(entry => {
+        Object.values(nextCache).forEach((entry: ThumbnailCacheEntry) => {
           if (entry.revoke) {
             URL.revokeObjectURL(entry.url);
           }
@@ -133,7 +135,9 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
 
       thumbnailCacheRef.current = nextCache;
       setThumbnailUrls(
-        Object.fromEntries(Object.entries(nextCache).map(([id, entry]) => [id, entry.url]))
+        Object.fromEntries(
+          Object.entries(nextCache).map(([id, entry]) => [id, entry.url])
+        )
       );
     });
 
@@ -145,7 +149,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   useEffect(() => {
     return () => {
       const cache = thumbnailCacheRef.current;
-      Object.values(cache).forEach(entry => {
+      Object.values(cache).forEach((entry: ThumbnailCacheEntry) => {
         if (entry.revoke) {
           URL.revokeObjectURL(entry.url);
         }
