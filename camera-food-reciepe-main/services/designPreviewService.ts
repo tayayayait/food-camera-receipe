@@ -28,6 +28,15 @@ const normalizeIngredients = (ingredients: string[]): string[] =>
     .filter((ingredient, index, self) => ingredient && self.findIndex(value => value.toLowerCase() === ingredient.toLowerCase()) === index);
 
 const recipePreviewCachePrefix = 'recipe-preview:';
+const defaultJournalArtStyle =
+  'warm tabletop scene with soft natural light, handcrafted ceramics, and gentle steam';
+
+export interface JournalPreviewOptions {
+  recipeName: string;
+  matchedIngredients?: string[];
+  missingIngredients?: string[];
+  artStyle?: string;
+}
 
 const readFromLocalStorage = (key: string): string | null => {
   if (typeof window === 'undefined' || !window?.localStorage) {
@@ -188,4 +197,35 @@ export async function fetchRecipePreviewImage(recipe: RecipeRecommendation): Pro
   writeToLocalStorage(cacheKey, imageData);
 
   return imageData;
+}
+
+export async function generateJournalPreviewImage(options: JournalPreviewOptions): Promise<string> {
+  const { recipeName, matchedIngredients = [], missingIngredients = [], artStyle = defaultJournalArtStyle } = options;
+
+  const normalizedName = recipeName.trim();
+  if (!normalizedName) {
+    throw new Error('error_design_preview_fetch');
+  }
+
+  const available = normalizeIngredients(matchedIngredients);
+  const missing = normalizeIngredients(missingIngredients);
+
+  const prompt = [
+    'You are crafting a tiny hero image for a cooking journal entry.',
+    'Create an illustration or stylized photo that feels handcrafted and inspiring at a glance.',
+    `Recipe name: ${normalizedName}`,
+    available.length > 0
+      ? `Ingredients already on hand: ${available.join(', ')}`
+      : 'Ingredients already on hand: none explicitly listed.',
+    missing.length > 0
+      ? `Ingredients still missing (hint subtly, do not emphasize scarcity): ${missing.join(', ')}`
+      : 'All ingredients appear to be available for this dish.',
+    `Art direction: ${artStyle}.`,
+    'Keep the composition focused on food, props, and mood—no people, no text, and no logos.',
+    'Return a single base64 encoded PNG or JPEG image that can be used as a thumbnail.',
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  return requestPreviewFromGemini(prompt);
 }

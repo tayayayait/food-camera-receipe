@@ -20,7 +20,7 @@ import NutritionSummaryCard from './components/NutritionSummaryCard';
 import BottomToolbar from './components/BottomToolbar';
 import RecipeExperienceModal from './components/RecipeExperienceModal';
 import { getRecipeSuggestions } from './services/geminiService';
-import { generateDesignPreview } from './services/designPreviewService';
+import { generateDesignPreview, generateJournalPreviewImage } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
@@ -147,6 +147,22 @@ const App: React.FC = () => {
   const [moodboardImage, setMoodboardImage] = useState<string | null>(null);
   const [isMoodboardLoading, setIsMoodboardLoading] = useState(false);
   const [moodboardError, setMoodboardError] = useState<string | null>(null);
+  const [journalPreviewStatuses, setJournalPreviewStatuses] = useState<
+    Record<string, 'idle' | 'loading' | 'error'>
+  >({});
+
+  useEffect(() => {
+    setRecipeMemories(current => {
+      if (!current.some(memory => typeof memory.journalPreviewImage === 'undefined')) {
+        return current;
+      }
+
+      return current.map(memory => ({
+        ...memory,
+        journalPreviewImage: memory.journalPreviewImage ?? null,
+      }));
+    });
+  }, [setRecipeMemories]);
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
@@ -275,6 +291,53 @@ const App: React.FC = () => {
     setCameraOpen(true);
   };
 
+  const requestJournalPreviewForMemory = (
+    memory: RecipeMemory,
+    recipeContext?: RecipeRecommendation | null
+  ) => {
+    let shouldSkip = false;
+
+    setJournalPreviewStatuses(current => {
+      if (current[memory.id] === 'loading') {
+        shouldSkip = true;
+        return current;
+      }
+
+      return { ...current, [memory.id]: 'loading' };
+    });
+
+    if (shouldSkip) {
+      return;
+    }
+
+    const matched = recipeContext?.matchedIngredients ?? memory.matchedIngredients ?? [];
+    const missing = recipeContext?.missingIngredients ?? memory.missingIngredients ?? [];
+    const artStyle =
+      'warm tabletop scene with soft natural light, handcrafted ceramics, and gentle steam rising from the dish';
+
+    void (async () => {
+      try {
+        const previewImage = await generateJournalPreviewImage({
+          recipeName: memory.recipeName,
+          matchedIngredients: matched,
+          missingIngredients: missing,
+          artStyle,
+        });
+
+        setRecipeMemories(current =>
+          current.map(entry =>
+            entry.id === memory.id ? { ...entry, journalPreviewImage: previewImage } : entry
+          )
+        );
+
+        setJournalPreviewStatuses(current => ({ ...current, [memory.id]: 'idle' }));
+      } catch (error) {
+        console.error('Failed to generate journal preview image', error);
+        setJournalPreviewStatuses(current => ({ ...current, [memory.id]: 'error' }));
+      }
+    })();
+  };
+
   const handleSaveRecipeMemory = (recipe: RecipeRecommendation) => {
     const normalizedName = recipe.recipeName.trim().toLowerCase();
     const existing = recipeMemories.find(
@@ -298,6 +361,9 @@ const App: React.FC = () => {
           )
         );
       }
+      if (!existing.journalPreviewImage) {
+        requestJournalPreviewForMemory(existing, recipe);
+      }
       setHighlightedMemoryId(existing.id);
       return { id: existing.id, isNew: false } as const;
     }
@@ -315,10 +381,12 @@ const App: React.FC = () => {
       ingredients: recipe.ingredientsNeeded,
       instructions: recipe.instructions,
       videos: recipe.videos,
+      journalPreviewImage: null,
     };
 
     setRecipeMemories(current => [newMemory, ...current]);
     setHighlightedMemoryId(newMemory.id);
+    requestJournalPreviewForMemory(newMemory, recipe);
     return { id: newMemory.id, isNew: true } as const;
   };
 
@@ -331,6 +399,27 @@ const App: React.FC = () => {
   const handleDeleteRecipeMemory = (id: string) => {
     setRecipeMemories(current => current.filter(memory => memory.id !== id));
     setHighlightedMemoryId(current => (current === id ? null : current));
+    setJournalPreviewStatuses(current => {
+      if (!(id in current)) {
+        return current;
+      }
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  };
+
+  const handleRegenerateJournalPreview = (id: string) => {
+    const memory = recipeMemories.find(entry => entry.id === id);
+    if (!memory) {
+      return;
+    }
+
+    setRecipeMemories(current =>
+      current.map(entry => (entry.id === id ? { ...entry, journalPreviewImage: null } : entry))
+    );
+
+    requestJournalPreviewForMemory({ ...memory, journalPreviewImage: null });
   };
 
   const handleMarkRecipeCooked = (id: string) => {
@@ -830,6 +919,8 @@ const App: React.FC = () => {
               onDelete={handleDeleteRecipeMemory}
               onMarkCooked={handleMarkRecipeCooked}
               onOpenDetails={handleOpenMemoryForCooking}
+              onRegeneratePreview={handleRegenerateJournalPreview}
+              previewStatuses={journalPreviewStatuses}
               highlightedId={highlightedMemoryId}
             />
           </section>
