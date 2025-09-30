@@ -206,6 +206,25 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     (recipe: RecipeRecommendation, options?: PreviewRequestOptions) => {
       const { force = false, clearImage = false, skipStatePriming = false } = options ?? {};
       const key = previewKeyForRecipe(recipe);
+      const manualPreviewImage = recipe.previewImage?.trim();
+
+      if (manualPreviewImage) {
+        setPreviews(prev => {
+          const previous = prev[key];
+          if (previous?.status === 'success' && previous.image === manualPreviewImage) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [key]: {
+              status: 'success',
+              image: manualPreviewImage,
+            },
+          };
+        });
+        return;
+      }
+
       const current = previewsRef.current[key];
 
       if (
@@ -280,6 +299,24 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const handleRefreshPreview = useCallback(
     (recipe: RecipeRecommendation) => {
       const key = previewKeyForRecipe(recipe);
+
+      if (recipe.previewImage?.trim()) {
+        const manualPreviewImage = recipe.previewImage.trim();
+        setPreviews(prev => {
+          const previous = prev[key];
+          if (previous?.status === 'success' && previous.image === manualPreviewImage) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [key]: {
+              status: 'success',
+              image: manualPreviewImage,
+            },
+          };
+        });
+        return;
+      }
 
       if (!isDesignPreviewSupported) {
         setPreviews(prev => ({
