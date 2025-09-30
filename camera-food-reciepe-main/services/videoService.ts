@@ -104,8 +104,8 @@ const scoreVideo = (title: string | undefined, recipeName: string, ingredients: 
 
 export async function getRecipeVideos(recipeName: string, ingredients: string[], maxResults = 4): Promise<RecipeVideo[]> {
   if (!YOUTUBE_API_KEY) {
-    console.warn('YOUTUBE_API_KEY (or API_KEY) environment variable is not set. No recipe videos will be returned.');
-    return [];
+    console.warn('YOUTUBE_API_KEY (or API_KEY) environment variable is not set.');
+    throw new Error('error_youtube_api_key');
   }
 
   try {
@@ -220,6 +220,13 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
 
     return rankedVideos;
   } catch (error) {
+    if (
+      error instanceof Error &&
+      (error.message === 'error_youtube_fetch' || error.message === 'error_youtube_api_key')
+    ) {
+      throw error;
+    }
+
     console.error('Error fetching or verifying YouTube videos', error);
     throw new Error('error_youtube_fetch');
   }
