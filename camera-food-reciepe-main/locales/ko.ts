@@ -186,7 +186,8 @@ export const noticeVideoFallback = '영상이 포함된 레시피를 찾지 못�
 export const error_gemini_api_key =
   'Gemini API 키가 설정되지 않았어요. GEMINI_API_KEY (또는 기존 API_KEY) 환경 변수를 확인해주세요.';
 export const error_gemini_fetch = '레시피를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
-export const error_youtube_api_key = 'YouTube API 키가 설정되지 않았어요. YOUTUBE_API_KEY(또는 기존 API_KEY)를 입력하면 영상을 불러올 수 있어요.';
+export const error_youtube_api_key =
+  'YouTube API 키가 설정되지 않았어요. YouTube 영상을 보려면 YOUTUBE_API_KEY 또는 VITE_YOUTUBE_API_KEY 환경 변수를 설정해주세요.';
 export const error_youtube_fetch = '레시피 영상을 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 export const error_vision_api_url = '이미지 인식 서비스가 아직 연결되지 않았어요. VISION_API_URL 환경 변수를 설정해주세요.';
 export const error_vision_fetch = '이미지에서 재료를 분석하는 데 실패했어요. 잠시 후 다시 시도해주세요.';
