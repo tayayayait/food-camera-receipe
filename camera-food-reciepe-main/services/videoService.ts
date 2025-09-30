@@ -180,8 +180,8 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
         .filter((entry): entry is readonly [string, YouTubeVideoDetail] => Boolean(entry[0]))
     );
 
-    const rankedVideos = videoIds
-      .map(videoId => {
+    const rankedCandidates = videoIds
+      .map((videoId, index) => {
         const detail = detailsById.get(videoId);
         const snippet = detail?.snippet ?? searchSnippets.get(videoId);
         if (!snippet) {
@@ -198,12 +198,10 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
         }
 
         const score = scoreVideo(snippet.title, recipeName, sanitizedIngredients);
-        if (score <= 0) {
-          return null;
-        }
 
         return {
           score,
+          index,
           video: {
             id: videoId,
             title: snippet.title ?? 'Recipe video',
@@ -213,12 +211,36 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
           } as RecipeVideo,
         };
       })
-      .filter((entry): entry is { score: number; video: RecipeVideo } => Boolean(entry))
+      .filter(
+        (entry): entry is { score: number; index: number; video: RecipeVideo } => Boolean(entry)
+      );
+
+    if (rankedCandidates.length === 0) {
+      return [];
+    }
+
+    const positiveScoreVideos = rankedCandidates
+      .filter(entry => entry.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, maxResults)
       .map(entry => entry.video);
 
-    return rankedVideos;
+    if (positiveScoreVideos.length > 0) {
+      return positiveScoreVideos;
+    }
+
+    const fallbackVideos = rankedCandidates
+      .slice()
+      .sort((a, b) => {
+        if (a.score === b.score) {
+          return a.index - b.index;
+        }
+        return b.score - a.score;
+      })
+      .slice(0, maxResults)
+      .map(entry => entry.video);
+
+    return fallbackVideos;
   } catch (error) {
     console.error('Error fetching or verifying YouTube videos', error);
     throw new Error('error_youtube_fetch');
