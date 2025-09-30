@@ -10,7 +10,7 @@ interface RecipeJournalProps {
   onMarkCooked: (id: string) => void;
   onOpenDetails: (id: string) => void;
   onRegeneratePreview: (id: string) => void;
-  previewStatuses?: Record<string, 'idle' | 'loading' | 'error'>;
+  previewStatuses?: Record<string, 'idle' | 'loading' | 'error' | 'unsupported'>;
   highlightedId?: string | null;
 }
 
@@ -198,6 +198,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
             const previewStatus = previewStatuses?.[entry.id] ?? 'idle';
             const isLoading = previewStatus === 'loading';
             const isError = previewStatus === 'error';
+            const isUnsupported = previewStatus === 'unsupported';
             const hydratedThumbnail = thumbnailUrls[entry.id];
             const fallbackThumbnail =
               entry.journalPreviewImage && !entry.journalPreviewImage.startsWith('data:')
@@ -222,11 +223,18 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                   <div className="sm:w-48 md:w-56 flex-shrink-0">
                     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[28px] border border-gray-200 bg-gray-50 shadow-inner">
                       {thumbnailSrc ? (
-                        <img
-                          src={thumbnailSrc}
-                          alt={t('journalPreviewAlt', { name: entry.recipeName })}
-                          className="h-full w-full object-cover"
-                        />
+                        <>
+                          <img
+                            src={thumbnailSrc}
+                            alt={t('journalPreviewAlt', { name: entry.recipeName })}
+                            className="h-full w-full object-cover"
+                          />
+                          {isUnsupported && !isLoading && !isError && (
+                            <div className="pointer-events-none absolute inset-x-4 bottom-4 rounded-xl bg-white/85 px-3 py-2 text-center text-xs font-semibold text-gray-600 shadow-sm backdrop-blur">
+                              {t('journalPreviewUnsupported')}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div
                           className="absolute inset-0"
@@ -236,6 +244,12 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                             backgroundBlendMode: 'normal, screen, screen, screen',
                           }}
                         />
+                      )}
+
+                      {isUnsupported && !thumbnailSrc && !isLoading && !isError && (
+                        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center text-sm font-medium text-gray-600">
+                          {t('journalPreviewUnsupported')}
+                        </div>
                       )}
 
                       <div className="absolute top-2 right-2" data-journal-menu>

@@ -208,7 +208,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
       const key = previewKeyForRecipe(recipe);
       const current = previewsRef.current[key];
 
-      if (!force && current && (current.status === 'loading' || current.status === 'success')) {
+      if (
+        !force &&
+        current &&
+        (current.status === 'loading' || current.status === 'success' || current.status === 'unsupported')
+      ) {
         return;
       }
 
@@ -234,15 +238,15 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
       }
 
       fetchRecipePreviewImage(recipe)
-        .then(image => {
+        .then(result => {
           if (!isMountedRef.current) {
             return;
           }
           setPreviews(prev => ({
             ...prev,
             [key]: {
-              status: 'success',
-              image,
+              status: result.status === 'unsupported' ? 'unsupported' : 'success',
+              image: result.dataUrl,
             },
           }));
         })
@@ -527,7 +531,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const isPreviewLoading = previewState.status === 'loading';
                 const isPreviewError = previewState.status === 'error';
                 const isPreviewUnsupported = previewState.status === 'unsupported';
-                const previewImage = previewState.status === 'success' ? previewState.image : undefined;
+                const previewImage = previewState.image;
+                const showPreviewImage =
+                  Boolean(previewImage) && !isPreviewLoading &&
+                  (previewState.status === 'success' || previewState.status === 'unsupported');
+                const isPreviewUnavailable = isPreviewUnsupported && !showPreviewImage && !isPreviewLoading;
                 const providerVideos = recipe.videos;
 
                 return (
@@ -539,19 +547,26 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             {t('recipeModalPreviewLoading')}
                           </div>
                         )}
-                        {previewImage && !isPreviewLoading && (
-                          <img
-                            src={previewImage}
-                            alt={`${recipe.recipeName} plating preview`}
-                            className="h-48 w-full object-cover"
-                          />
+                        {showPreviewImage && (
+                          <>
+                            <img
+                              src={previewImage as string}
+                              alt={`${recipe.recipeName} plating preview`}
+                              className="h-48 w-full object-cover"
+                            />
+                            {isPreviewUnsupported && (
+                              <div className="absolute inset-x-3 bottom-3 rounded-xl bg-white/85 px-3 py-2 text-center text-xs font-semibold text-gray-600 shadow-sm backdrop-blur">
+                                {t('recipeModalPreviewUnsupported')}
+                              </div>
+                            )}
+                          </>
                         )}
-                        {isPreviewUnsupported && !previewImage && !isPreviewLoading && (
+                        {isPreviewUnavailable && (
                           <div className="flex h-48 w-full items-center justify-center bg-gray-50 px-6 text-center text-sm font-medium text-gray-500">
-                            {t('error_gemini_api_key')}
+                            {t('recipeModalPreviewUnsupported')}
                           </div>
                         )}
-                        {isPreviewError && !previewImage && !isPreviewLoading && !isPreviewUnsupported && (
+                        {isPreviewError && !showPreviewImage && !isPreviewLoading && !isPreviewUnsupported && (
                           <div className="flex h-48 w-full flex-col items-center justify-center gap-2 bg-gray-50 text-center text-sm text-gray-500">
                             <p>{t('recipeModalPreviewError')}</p>
                             <button
