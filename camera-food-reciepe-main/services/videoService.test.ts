@@ -3,6 +3,7 @@ import type { RecipeVideo } from '../types';
 
 const originalApiKey = process.env.YOUTUBE_API_KEY;
 const originalLegacyApiKey = process.env.API_KEY;
+const originalViteApiKey = process.env.VITE_YOUTUBE_API_KEY;
 const originalFetch = global.fetch;
 
 beforeAll(() => {
@@ -14,6 +15,11 @@ afterAll(() => {
     delete process.env.YOUTUBE_API_KEY;
   } else {
     process.env.YOUTUBE_API_KEY = originalApiKey;
+  }
+  if (originalViteApiKey === undefined) {
+    delete process.env.VITE_YOUTUBE_API_KEY;
+  } else {
+    process.env.VITE_YOUTUBE_API_KEY = originalViteApiKey;
   }
   if (originalLegacyApiKey === undefined) {
     delete process.env.API_KEY;
@@ -143,6 +149,7 @@ describe('getRecipeVideos', () => {
 
   it('throws an explicit error when the API key is missing', async () => {
     delete process.env.YOUTUBE_API_KEY;
+    delete process.env.VITE_YOUTUBE_API_KEY;
     delete process.env.API_KEY;
     const fetchSpy = vi.fn();
     global.fetch = fetchSpy as unknown as typeof fetch;
@@ -155,10 +162,16 @@ describe('getRecipeVideos', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
 
     process.env.YOUTUBE_API_KEY = 'test-api-key';
+    if (originalViteApiKey === undefined) {
+      delete process.env.VITE_YOUTUBE_API_KEY;
+    } else {
+      process.env.VITE_YOUTUBE_API_KEY = originalViteApiKey;
+    }
   });
 
   it('does not fall back to process.env.API_KEY when YOUTUBE_API_KEY is unset', async () => {
     delete process.env.YOUTUBE_API_KEY;
+    delete process.env.VITE_YOUTUBE_API_KEY;
     process.env.API_KEY = 'legacy-key';
     const fetchSpy = vi.fn();
     global.fetch = fetchSpy as unknown as typeof fetch;
@@ -171,6 +184,59 @@ describe('getRecipeVideos', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
 
     process.env.YOUTUBE_API_KEY = 'test-api-key';
+    if (originalViteApiKey === undefined) {
+      delete process.env.VITE_YOUTUBE_API_KEY;
+    } else {
+      process.env.VITE_YOUTUBE_API_KEY = originalViteApiKey;
+    }
     delete process.env.API_KEY;
+  });
+
+  it('uses VITE_YOUTUBE_API_KEY when only the Vite-prefixed key is set', async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    process.env.VITE_YOUTUBE_API_KEY = 'vite-only-key';
+
+    const jsonResponse = createJsonResponse({
+      items: [
+        {
+          id: { videoId: 'video1' },
+          snippet: {
+            title: 'Kimchi stew recipe',
+            channelTitle: 'Chef',
+            thumbnails: { high: { url: 'https://example.com/thumb.jpg' } },
+          },
+        },
+      ],
+    });
+
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse)
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          items: [
+            {
+              id: 'video1',
+              snippet: {
+                title: 'Kimchi stew recipe',
+                channelTitle: 'Chef',
+                thumbnails: { high: { url: 'https://example.com/thumb.jpg' } },
+              },
+              status: { privacyStatus: 'public', uploadStatus: 'processed' },
+            },
+          ],
+        })
+      );
+
+    const { getRecipeVideos } = await import('./videoService');
+
+    await expect(getRecipeVideos('Kimchi stew', ['kimchi'])).resolves.toBeInstanceOf(Array);
+
+    expect(global.fetch).toHaveBeenCalled();
+    const fetchUrl = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(String(fetchUrl)).toContain('key=vite-only-key');
+
+    process.env.YOUTUBE_API_KEY = 'test-api-key';
+    delete process.env.VITE_YOUTUBE_API_KEY;
   });
 });

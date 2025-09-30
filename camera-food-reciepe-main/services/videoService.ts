@@ -1,7 +1,9 @@
 import type { RecipeVideo } from '../types';
 
 const resolveYoutubeApiKey = () => {
-  const apiKey = process.env.YOUTUBE_API_KEY as string | undefined;
+  const apiKey = (process.env.YOUTUBE_API_KEY ?? process.env.VITE_YOUTUBE_API_KEY) as
+    | string
+    | undefined;
   if (!apiKey) {
     throw new Error('error_youtube_api_key');
   }

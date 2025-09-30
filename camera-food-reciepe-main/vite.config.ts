@@ -9,7 +9,8 @@ export default defineConfig(({ mode }) => {
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      'process.env.YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY),
+      'process.env.YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY ?? env.VITE_YOUTUBE_API_KEY),
+      'process.env.VITE_YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY ?? env.VITE_YOUTUBE_API_KEY),
       'process.env.VISION_API_URL': JSON.stringify(env.VISION_API_URL),
       'process.env.VISION_API_KEY': JSON.stringify(env.VISION_API_KEY),
     },
