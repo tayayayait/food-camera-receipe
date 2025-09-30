@@ -30,6 +30,8 @@ import { estimateNutritionSummary } from './services/nutritionService';
 
 type ActiveView = 'intro' | 'pantry' | 'recipes' | 'nutrition' | 'journal';
 
+type YoutubeConfigError = Error & { recipes?: RecipeWithVideos[] };
+
 interface IntroScreenProps {
   onStart: () => void;
   onScan: () => void;
@@ -464,17 +466,29 @@ const App: React.FC = () => {
     suggestions: Recipe[],
     ingredients: string[]
   ): Promise<RecipeWithVideos[]> => {
+    let youtubeConfigErrorDetected = false;
+
     const enriched = await Promise.all(
       suggestions.map(async suggestion => {
         try {
           const videos = await getRecipeVideos(suggestion.recipeName, ingredients);
           return { ...suggestion, videos };
         } catch (videoError) {
-          console.error('Unable to fetch recipe videos', videoError);
+          if (videoError instanceof Error && videoError.message === 'error_youtube_api_key') {
+            youtubeConfigErrorDetected = true;
+          } else {
+            console.error('Unable to fetch recipe videos', videoError);
+          }
           return { ...suggestion, videos: [] };
         }
       })
     );
+
+    if (youtubeConfigErrorDetected) {
+      const error = new Error('error_youtube_api_key') as YoutubeConfigError;
+      error.recipes = enriched;
+      throw error;
+    }
 
     return enriched;
   };
@@ -491,7 +505,22 @@ const App: React.FC = () => {
         setError(t('errorNoRecipes'));
         return;
       }
-      const enriched = await enrichRecipesWithVideos(suggestions, ingredients);
+      let youtubeConfigError = false;
+      let enriched: RecipeWithVideos[];
+
+      try {
+        enriched = await enrichRecipesWithVideos(suggestions, ingredients);
+      } catch (videoError) {
+        if (videoError instanceof Error && videoError.message === 'error_youtube_api_key') {
+          youtubeConfigError = true;
+          setVideoAvailabilityNotice(t('error_youtube_api_key'));
+          const enrichedFromError = (videoError as YoutubeConfigError).recipes;
+          enriched = enrichedFromError ?? suggestions.map(suggestion => ({ ...suggestion, videos: [] }));
+        } else {
+          throw videoError;
+        }
+      }
+
       const hasVideos = enriched.some(recipe => recipe.videos.length > 0);
       const youtubeReady = hasVideos ? enriched.filter(recipe => recipe.videos.length > 0) : [];
 
@@ -502,7 +531,7 @@ const App: React.FC = () => {
         return;
       }
 
-      if (!hasVideos) {
+      if (!hasVideos && !youtubeConfigError) {
         setVideoAvailabilityNotice(t('noticeVideoFallback'));
       }
 
@@ -1010,6 +1039,7 @@ const App: React.FC = () => {
           nutritionContext={nutritionContext}
           onViewRecipeNutrition={handleViewRecipeNutrition}
           onApplyDetectedIngredients={handleApplyDetectedIngredients}
+          videoAvailabilityNotice={videoAvailabilityNotice}
         />
       )}
 

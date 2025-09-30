@@ -80,6 +80,7 @@ interface RecipeModalProps {
   nutritionContext?: NutritionContext | null;
   onViewRecipeNutrition: (recipe: RecipeRecommendation) => void;
   onApplyDetectedIngredients: (ingredients: string[]) => Promise<string[]>;
+  videoAvailabilityNotice?: string | null;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -104,6 +105,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   nutritionContext,
   onViewRecipeNutrition,
   onApplyDetectedIngredients,
+  videoAvailabilityNotice,
 }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
@@ -656,7 +658,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                               ))
                             ) : (
                               <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right">
-                                {t('recipeModalProviderNoVideos')}
+                                {videoAvailabilityNotice ?? t('recipeModalProviderNoVideos')}
                               </div>
                             )}
                           </div>
@@ -738,7 +740,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             ))}
                           </div>
                         ) : (
-                          <p className="text-sm text-gray-400">{t('recipeModalNoVideos')}</p>
+                          <p className="text-sm text-gray-400">
+                            {videoAvailabilityNotice ?? t('recipeModalNoVideos')}
+                          </p>
                         )}
                       </div>
                     </div>

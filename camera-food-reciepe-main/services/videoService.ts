@@ -104,8 +104,7 @@ const scoreVideo = (title: string | undefined, recipeName: string, ingredients: 
 
 export async function getRecipeVideos(recipeName: string, ingredients: string[], maxResults = 4): Promise<RecipeVideo[]> {
   if (!YOUTUBE_API_KEY) {
-    console.warn('YOUTUBE_API_KEY (or API_KEY) environment variable is not set. No recipe videos will be returned.');
-    return [];
+    throw new Error('error_youtube_api_key');
   }
 
   try {
