@@ -263,12 +263,26 @@ export async function fetchRecipePreviewImage(
     };
   }
 
+  const sanitizedRecipeIngredients = normalizeIngredients(recipe.ingredientsNeeded ?? []);
+  const availableIngredients = normalizeIngredients(recipe.matchedIngredients ?? []);
+  const missingIngredients = normalizeIngredients(recipe.missingIngredients ?? []);
+
   const prompt = [
     'You are an imaginative food photographer crafting a stylized hero shot for a recipe recommendation card.',
     `Recipe name: ${recipe.recipeName.trim()}`,
     recipe.description ? `Recipe description: ${recipe.description.trim()}` : null,
+    sanitizedRecipeIngredients.length > 0
+      ? `Core ingredients that must be visible in the dish: ${sanitizedRecipeIngredients.join(', ')}`
+      : null,
+    availableIngredients.length > 0
+      ? `Ingredients currently available to the cook: ${availableIngredients.join(', ')}`
+      : null,
+    missingIngredients.length > 0
+      ? `Ingredients not yet gathered (avoid showing them prominently): ${missingIngredients.join(', ')}`
+      : null,
     'Create a single appetizing photograph of the finished dish plated beautifully on a modern table.',
     'Use soft daylight, emphasize vibrant colors, and avoid any text overlays, logos, hands, or people.',
+    'Ensure the final plating clearly highlights the core ingredients and reflects the described recipe.',
     'Return only base64 encoded PNG or JPEG data for the generated image.',
   ]
     .filter(Boolean)
