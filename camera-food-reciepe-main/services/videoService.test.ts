@@ -2,6 +2,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import type { RecipeVideo } from '../types';
 
 const originalApiKey = process.env.YOUTUBE_API_KEY;
+const originalLegacyApiKey = process.env.API_KEY;
 const originalFetch = global.fetch;
 
 beforeAll(() => {
@@ -13,6 +14,11 @@ afterAll(() => {
     delete process.env.YOUTUBE_API_KEY;
   } else {
     process.env.YOUTUBE_API_KEY = originalApiKey;
+  }
+  if (originalLegacyApiKey === undefined) {
+    delete process.env.API_KEY;
+  } else {
+    process.env.API_KEY = originalLegacyApiKey;
   }
   global.fetch = originalFetch;
 });
@@ -149,5 +155,22 @@ describe('getRecipeVideos', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
 
     process.env.YOUTUBE_API_KEY = 'test-api-key';
+  });
+
+  it('does not fall back to process.env.API_KEY when YOUTUBE_API_KEY is unset', async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    process.env.API_KEY = 'legacy-key';
+    const fetchSpy = vi.fn();
+    global.fetch = fetchSpy as unknown as typeof fetch;
+    const { getRecipeVideos } = await import('./videoService');
+
+    await expect(getRecipeVideos('Kimchi stew', ['kimchi'])).rejects.toThrowError(
+      new Error('error_youtube_api_key')
+    );
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    process.env.YOUTUBE_API_KEY = 'test-api-key';
+    delete process.env.API_KEY;
   });
 });
