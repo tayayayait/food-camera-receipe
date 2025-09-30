@@ -4,7 +4,9 @@ import type { RecipeRecommendation } from '../types';
 const GEMINI_API_KEY =
   (process.env.GEMINI_API_KEY as string | undefined) ?? (process.env.API_KEY as string | undefined);
 
-const ai = GEMINI_API_KEY ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
+export const isDesignPreviewSupported = Boolean(GEMINI_API_KEY);
+
+const ai = isDesignPreviewSupported ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
 const normalizeIngredients = (ingredients: string[]): string[] =>
   ingredients
@@ -68,7 +70,7 @@ const deriveRecipePreviewKey = (recipe: RecipeRecommendation): string => {
 };
 
 const requestPreviewFromGemini = async (prompt: string): Promise<string> => {
-  if (!GEMINI_API_KEY || !ai) {
+  if (!isDesignPreviewSupported || !ai) {
     throw new Error('error_gemini_api_key');
   }
 
@@ -106,6 +108,10 @@ export async function generateDesignPreview(ingredients: string[]): Promise<stri
     throw new Error('error_design_preview_fetch');
   }
 
+  if (!isDesignPreviewSupported) {
+    throw new Error('error_gemini_api_key');
+  }
+
   const prompt = [
     'You are a culinary art director helping a cooking assistant app feel inspiring when users scan their fridge.',
     'Create a single evocative moodboard preview image that blends the detected ingredients into a cohesive cooking inspiration scene.',
@@ -126,6 +132,10 @@ export const clearRecipePreviewCache = (recipe: RecipeRecommendation) => {
 };
 
 export async function fetchRecipePreviewImage(recipe: RecipeRecommendation): Promise<string> {
+  if (!isDesignPreviewSupported) {
+    throw new Error('error_gemini_api_key');
+  }
+
   const cacheKey = deriveRecipePreviewKey(recipe);
   const cached = readFromLocalStorage(cacheKey);
 
@@ -156,6 +166,10 @@ export async function generateJournalPreviewImage(options: JournalPreviewOptions
   const normalizedName = recipeName.trim();
   if (!normalizedName) {
     throw new Error('error_design_preview_fetch');
+  }
+
+  if (!isDesignPreviewSupported) {
+    throw new Error('error_gemini_api_key');
   }
 
   const available = normalizeIngredients(matchedIngredients);
