@@ -151,7 +151,7 @@ const App: React.FC = () => {
   const [isMoodboardLoading, setIsMoodboardLoading] = useState(false);
   const [moodboardError, setMoodboardError] = useState<string | null>(null);
   const [journalPreviewStatuses, setJournalPreviewStatuses] = useState<
-    Record<string, 'idle' | 'loading' | 'error'>
+    Record<string, 'idle' | 'loading' | 'error' | 'unsupported'>
   >({});
   const [videoAvailabilityNotice, setVideoAvailabilityNotice] = useState<string | null>(null);
 
@@ -302,7 +302,7 @@ const App: React.FC = () => {
 
     void (async () => {
       try {
-        const previewImage = await generateJournalPreviewImage({
+        const previewResult = await generateJournalPreviewImage({
           recipeName: memory.recipeName,
           matchedIngredients: matched,
           missingIngredients: missing,
@@ -311,11 +311,14 @@ const App: React.FC = () => {
 
         setRecipeMemories(current =>
           current.map(entry =>
-            entry.id === memory.id ? { ...entry, journalPreviewImage: previewImage } : entry
+            entry.id === memory.id ? { ...entry, journalPreviewImage: previewResult.dataUrl } : entry
           )
         );
 
-        setJournalPreviewStatuses(current => ({ ...current, [memory.id]: 'idle' }));
+        setJournalPreviewStatuses(current => ({
+          ...current,
+          [memory.id]: previewResult.status === 'unsupported' ? 'unsupported' : 'idle',
+        }));
       } catch (error) {
         console.error('Failed to generate journal preview image', error);
         setJournalPreviewStatuses(current => ({ ...current, [memory.id]: 'error' }));
@@ -625,8 +628,11 @@ const App: React.FC = () => {
       setActiveView('pantry');
 
       try {
-        const previewUrl = await generateDesignPreview(sanitizedDetectedIngredients);
-        setMoodboardImage(previewUrl);
+        const previewResult = await generateDesignPreview(sanitizedDetectedIngredients);
+        setMoodboardImage(previewResult.dataUrl);
+        if (previewResult.status === 'unsupported') {
+          setMoodboardError(t('introMoodboardUnsupported'));
+        }
       } catch (previewError) {
         console.error('Failed to generate design preview:', previewError);
         setMoodboardImage(null);

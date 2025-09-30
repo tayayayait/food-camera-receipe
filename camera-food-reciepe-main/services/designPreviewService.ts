@@ -8,6 +8,30 @@ export const isDesignPreviewSupported = Boolean(GEMINI_API_KEY);
 
 const ai = isDesignPreviewSupported ? new GoogleGenAI({ apiKey: GEMINI_API_KEY }) : null;
 
+const GEMINI_PREVIEW_MODEL = 'gemini-2.5-flash-image-preview';
+const DEFAULT_IMAGE_MODEL = 'imagen-3.0-generate-002';
+
+const configuredImageModel = process.env.GEMINI_IMAGE_MODEL?.trim();
+const resolvedPrimaryImageModel = configuredImageModel && configuredImageModel.length > 0
+  ? configuredImageModel
+  : DEFAULT_IMAGE_MODEL;
+
+const resolvedAlternateImageModel = resolvedPrimaryImageModel === GEMINI_PREVIEW_MODEL
+  ? DEFAULT_IMAGE_MODEL
+  : GEMINI_PREVIEW_MODEL;
+
+const PLACEHOLDER_PREVIEW_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAAxklEQVR4nO3ZwQ2DMBAF0bNIN1EGsRNshDYg3QgZ5M90yxCLgn/FBqXfiKPu21/x+sBAAAAAAAAAAAAwL/kuz2po3WT6c7tKZrX9G0v0zSdmmbpN03TNM2maZqeNE3TNM2maZqeNE3TtD1C03Vf+Wbvk3Sf37Bdlum6btM0zSZpmunRN0zTNpmmanjRN0zTNpmmanjRN07Q9Qk3TfJbrJN0nd+wXZbpum7TNM0maZrp0TdM0zaZppp40TdM0zaZpp40TdO0PQLnFf8tAwAAAAAAAAAAAAAA4Jt+AzHYAX8GumSCAAAAAElFTkSuQmCC';
+
+export type GeminiPreviewStatus = 'success' | 'unsupported';
+
+export interface GeminiPreviewResponse {
+  status: GeminiPreviewStatus;
+  dataUrl: string;
+  model: string | null;
+  attemptedModels: string[];
+}
+
 const normalizeIngredients = (ingredients: string[]): string[] =>
   ingredients
     .map(ingredient => ingredient.trim())
@@ -69,14 +93,66 @@ const deriveRecipePreviewKey = (recipe: RecipeRecommendation): string => {
   return `${recipePreviewCachePrefix}${resolvedId.toLowerCase()}`;
 };
 
-const requestPreviewFromGemini = async (prompt: string): Promise<string> => {
+const extractStatusCode = (error: unknown): number | undefined => {
+  if (!error || typeof error !== 'object') {
+    return undefined;
+  }
+
+  const candidateValues = [
+    (error as { status?: unknown }).status,
+    (error as { statusCode?: unknown }).statusCode,
+    (error as { code?: unknown }).code,
+    (error as { response?: { status?: unknown } }).response?.status,
+    (error as { cause?: { status?: unknown } }).cause?.status,
+  ];
+
+  for (const candidate of candidateValues) {
+    if (typeof candidate === 'number') {
+      return candidate;
+    }
+    if (typeof candidate === 'string') {
+      const parsed = Number(candidate);
+      if (!Number.isNaN(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return undefined;
+};
+
+const isRetryableGeminiError = (error: unknown): boolean => {
+  const statusCode = extractStatusCode(error);
+  if (statusCode === 403 || statusCode === 404) {
+    return true;
+  }
+
+  if (statusCode && statusCode >= 400 && statusCode < 500) {
+    return true;
+  }
+
+  const message = error instanceof Error ? error.message : typeof error === 'string' ? error : '';
+  const normalizedMessage = message.toLowerCase();
+  return [
+    'gemini',
+    'permission',
+    'model',
+    'not found',
+    'forbidden',
+  ].some(keyword => normalizedMessage.includes(keyword));
+};
+
+const requestPreviewFromGemini = async (prompt: string): Promise<GeminiPreviewResponse> => {
   if (!isDesignPreviewSupported || !ai) {
     throw new Error('error_gemini_api_key');
   }
 
-  try {
+  const attemptedModels: string[] = [];
+
+  const generateWithModel = async (model: string): Promise<string> => {
+    attemptedModels.push(model);
     const response = await ai.models.generateImages({
-      model: 'gemini-2.5-flash-image-preview',
+      model,
       prompt,
       config: {
         numberOfImages: 1,
@@ -95,13 +171,50 @@ const requestPreviewFromGemini = async (prompt: string): Promise<string> => {
       : 'image/png';
 
     return `data:${mimeType};base64,${imageBytes}`;
-  } catch (error) {
-    console.error('Error generating design preview from Gemini API:', error);
-    throw new Error('error_design_preview_fetch');
+  };
+
+  try {
+    const dataUrl = await generateWithModel(resolvedPrimaryImageModel);
+    return {
+      status: 'success',
+      dataUrl,
+      model: resolvedPrimaryImageModel,
+      attemptedModels: [...attemptedModels],
+    };
+  } catch (primaryError) {
+    const shouldAttemptFallback = isRetryableGeminiError(primaryError);
+
+    if (!shouldAttemptFallback) {
+      console.error('Error generating design preview from Gemini API:', primaryError);
+      throw new Error('error_design_preview_fetch');
+    }
+
+    console.warn('Gemini image generation failed, attempting alternate model.', primaryError);
+
+    if (resolvedAlternateImageModel && resolvedAlternateImageModel !== resolvedPrimaryImageModel) {
+      try {
+        const dataUrl = await generateWithModel(resolvedAlternateImageModel);
+        return {
+          status: 'success',
+          dataUrl,
+          model: resolvedAlternateImageModel,
+          attemptedModels: [...attemptedModels],
+        };
+      } catch (alternateError) {
+        console.error('Alternate Gemini image model also failed, using placeholder preview.', alternateError);
+      }
+    }
+
+    return {
+      status: 'unsupported',
+      dataUrl: PLACEHOLDER_PREVIEW_DATA_URL,
+      model: null,
+      attemptedModels: [...attemptedModels],
+    };
   }
 };
 
-export async function generateDesignPreview(ingredients: string[]): Promise<string> {
+export async function generateDesignPreview(ingredients: string[]): Promise<GeminiPreviewResponse> {
   const sanitizedIngredients = normalizeIngredients(ingredients);
 
   if (sanitizedIngredients.length === 0) {
@@ -131,7 +244,9 @@ export const clearRecipePreviewCache = (recipe: RecipeRecommendation) => {
   removeFromLocalStorage(key);
 };
 
-export async function fetchRecipePreviewImage(recipe: RecipeRecommendation): Promise<string> {
+export async function fetchRecipePreviewImage(
+  recipe: RecipeRecommendation
+): Promise<GeminiPreviewResponse> {
   if (!isDesignPreviewSupported) {
     throw new Error('error_gemini_api_key');
   }
@@ -140,7 +255,12 @@ export async function fetchRecipePreviewImage(recipe: RecipeRecommendation): Pro
   const cached = readFromLocalStorage(cacheKey);
 
   if (cached) {
-    return cached;
+    return {
+      status: 'success',
+      dataUrl: cached,
+      model: resolvedPrimaryImageModel,
+      attemptedModels: [resolvedPrimaryImageModel],
+    };
   }
 
   const prompt = [
@@ -154,13 +274,18 @@ export async function fetchRecipePreviewImage(recipe: RecipeRecommendation): Pro
     .filter(Boolean)
     .join('\n');
 
-  const imageData = await requestPreviewFromGemini(prompt);
-  writeToLocalStorage(cacheKey, imageData);
+  const result = await requestPreviewFromGemini(prompt);
 
-  return imageData;
+  if (result.status === 'success') {
+    writeToLocalStorage(cacheKey, result.dataUrl);
+  }
+
+  return result;
 }
 
-export async function generateJournalPreviewImage(options: JournalPreviewOptions): Promise<string> {
+export async function generateJournalPreviewImage(
+  options: JournalPreviewOptions
+): Promise<GeminiPreviewResponse> {
   const { recipeName, matchedIngredients = [], missingIngredients = [], artStyle = defaultJournalArtStyle } = options;
 
   const normalizedName = recipeName.trim();
