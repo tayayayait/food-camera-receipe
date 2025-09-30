@@ -151,6 +151,7 @@ const App: React.FC = () => {
   const [journalPreviewStatuses, setJournalPreviewStatuses] = useState<
     Record<string, 'idle' | 'loading' | 'error'>
   >({});
+  const [videoAvailabilityNotice, setVideoAvailabilityNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setRecipeMemories(current => {
@@ -481,6 +482,7 @@ const App: React.FC = () => {
   const fetchRecipesForIngredients = async (ingredients: string[], availableIngredientNames: string[]) => {
     setError(null);
     setIsLoadingRecipes(true);
+    setVideoAvailabilityNotice(null);
 
     try {
       const suggestions = await getRecipeSuggestions(ingredients);
@@ -490,16 +492,23 @@ const App: React.FC = () => {
         return;
       }
       const enriched = await enrichRecipesWithVideos(suggestions, ingredients);
-      const youtubeReady = enriched.filter(recipe => recipe.videos.length > 0);
+      const hasVideos = enriched.some(recipe => recipe.videos.length > 0);
+      const youtubeReady = hasVideos ? enriched.filter(recipe => recipe.videos.length > 0) : [];
 
-      if (youtubeReady.length === 0) {
+      if (hasVideos && youtubeReady.length === 0) {
         setRecipes([]);
+        setVideoAvailabilityNotice(null);
         setError(t('errorNoVideoRecipes'));
         return;
       }
 
+      if (!hasVideos) {
+        setVideoAvailabilityNotice(t('noticeVideoFallback'));
+      }
+
       const availableSet = new Set(availableIngredientNames.map(normalizeIngredientName));
-      const recommendations: RecipeRecommendation[] = youtubeReady
+      const recommendationSource = hasVideos ? youtubeReady : enriched;
+      const recommendations: RecipeRecommendation[] = recommendationSource
         .map(recipe => {
           const missingIngredients = recipe.ingredientsNeeded.filter(
             ingredient => !availableSet.has(normalizeIngredientName(ingredient))
@@ -524,6 +533,7 @@ const App: React.FC = () => {
       const messageKey = err instanceof Error ? err.message : 'errorUnknown';
       setRecipes([]);
       setError(t(messageKey as any));
+      setVideoAvailabilityNotice(null);
     } finally {
       setIsLoadingRecipes(false);
     }
@@ -536,6 +546,7 @@ const App: React.FC = () => {
     if (activeItems.length === 0) {
       setSelectedIngredients([]);
       setRecipes([]);
+      setVideoAvailabilityNotice(null);
       setError(t('errorScanFirst'));
       setRecipeModalOpen(true);
       return;
@@ -599,6 +610,7 @@ const App: React.FC = () => {
       setSelectedIngredients([]);
       setRecipes([]);
       setError(t(messageKey as any));
+      setVideoAvailabilityNotice(null);
       setRecipeModalOpen(true);
       setNutritionSummary(null);
       setNutritionIngredients([]);
@@ -974,6 +986,11 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/30 font-sans text-[#1C2B4B]">
       <Header />
       <main className="container mx-auto max-w-5xl px-4 py-6 md:py-10 pb-36 space-y-8">
+        {videoAvailabilityNotice && (
+          <div className="rounded-3xl border border-[#7CB7FF]/30 bg-white/80 px-4 py-3 text-sm text-[#1C2B4B]/80 shadow-sm">
+            {videoAvailabilityNotice}
+          </div>
+        )}
         {renderActiveView()}
       </main>
 
