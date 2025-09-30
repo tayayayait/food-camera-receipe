@@ -93,4 +93,5 @@ export interface RecipeMemory {
     ingredients?: string[];
     instructions?: string[];
     videos?: RecipeVideo[];
+    journalPreviewImage?: string | null;
 }
