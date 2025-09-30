@@ -481,6 +481,9 @@ const App: React.FC = () => {
     suggestions: Recipe[],
     ingredients: string[]
   ): Promise<RecipeWithVideos[]> => {
+    let firstError: unknown;
+    let failureCount = 0;
+
     const enriched = await Promise.all(
       suggestions.map(async suggestion => {
         try {
@@ -488,10 +491,21 @@ const App: React.FC = () => {
           return { ...suggestion, videos };
         } catch (videoError) {
           console.error('Unable to fetch recipe videos', videoError);
+          if (typeof firstError === 'undefined') {
+            firstError = videoError;
+          }
+          failureCount += 1;
           return { ...suggestion, videos: [] };
         }
       })
     );
+
+    if (suggestions.length > 0 && failureCount === suggestions.length && typeof firstError !== 'undefined') {
+      if (firstError instanceof Error) {
+        throw firstError;
+      }
+      throw new Error('errorUnknown');
+    }
 
     return enriched;
   };
@@ -539,9 +553,20 @@ const App: React.FC = () => {
 
       setRecipes(recommendations);
     } catch (err) {
-      const messageKey = err instanceof Error ? err.message : 'errorUnknown';
       setRecipes([]);
-      setError(t(messageKey as any));
+
+      if (err instanceof Error) {
+        const messageKey = err.message || 'errorUnknown';
+        if (messageKey === 'error_youtube_api_key' || messageKey === 'error_youtube_fetch') {
+          setError(t(messageKey as any));
+          return;
+        }
+
+        setError(t(messageKey as any));
+        return;
+      }
+
+      setError(t('errorUnknown'));
     } finally {
       setIsLoadingRecipes(false);
     }
