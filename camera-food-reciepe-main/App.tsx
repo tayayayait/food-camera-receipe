@@ -332,7 +332,11 @@ const App: React.FC = () => {
     })();
   };
 
-  const handleSaveRecipeMemory = (recipe: RecipeRecommendation) => {
+  const handleSaveRecipeMemory = (recipe: RecipeRecommendation, selectedVideoId: string | null) => {
+    const selectedVideoIsFromRecipe = selectedVideoId
+      ? recipe.videos.some(video => video.id === selectedVideoId)
+      : false;
+    const normalizedSelectedVideoId = selectedVideoIsFromRecipe ? selectedVideoId : null;
     const normalizedName = recipe.recipeName.trim().toLowerCase();
     const existing = recipeMemories.find(
       memory => memory.recipeName.trim().toLowerCase() === normalizedName
@@ -341,15 +345,20 @@ const App: React.FC = () => {
     if (existing) {
       const needsEnrichment =
         !existing.ingredients?.length || !existing.instructions?.length || !existing.videos?.length;
-      if (needsEnrichment) {
+      if (needsEnrichment || existing.selectedVideoId !== normalizedSelectedVideoId) {
         setRecipeMemories(current =>
           current.map(memory =>
             memory.id === existing.id
               ? {
                   ...memory,
-                  ingredients: recipe.ingredientsNeeded,
-                  instructions: recipe.instructions,
-                  videos: recipe.videos,
+                  selectedVideoId: normalizedSelectedVideoId,
+                  ...(needsEnrichment
+                    ? {
+                        ingredients: recipe.ingredientsNeeded,
+                        instructions: recipe.instructions,
+                        videos: recipe.videos,
+                      }
+                    : {}),
                 }
               : memory
           )
@@ -375,6 +384,7 @@ const App: React.FC = () => {
       ingredients: recipe.ingredientsNeeded,
       instructions: recipe.instructions,
       videos: recipe.videos,
+      selectedVideoId: normalizedSelectedVideoId,
       journalPreviewImage: null,
     };
 

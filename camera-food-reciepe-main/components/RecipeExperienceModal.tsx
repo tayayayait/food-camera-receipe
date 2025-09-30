@@ -27,6 +27,22 @@ const RecipeExperienceModal: React.FC<RecipeExperienceModalProps> = ({ entry, on
 
   const instructions = entry.instructions ?? [];
   const videos = entry.videos ?? [];
+  const selectedVideoId = entry.selectedVideoId ?? null;
+  const selectedVideo = useMemo(
+    () => (selectedVideoId ? videos.find(video => video.id === selectedVideoId) ?? null : null),
+    [videos, selectedVideoId]
+  );
+
+  const videoSectionHeading = selectedVideo
+    ? t('experienceModalVideosTitleSelected', { title: selectedVideo.title })
+    : t('experienceModalVideosTitle');
+
+  const videoSectionSubtitle = selectedVideo
+    ? t('experienceModalVideosSubtitleSelected', {
+        title: selectedVideo.title,
+        channel: selectedVideo.channelTitle,
+      })
+    : t('experienceModalVideosSubtitle');
 
   const nutritionSummary = useMemo(() => {
     if (!ingredients.length) {
@@ -181,9 +197,12 @@ const RecipeExperienceModal: React.FC<RecipeExperienceModalProps> = ({ entry, on
           </section>
 
           <section className="space-y-4">
-            <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-widest">
-              {t('experienceModalVideosTitle')}
-            </h3>
+            <div className="space-y-1">
+              <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-widest">
+                {videoSectionHeading}
+              </h3>
+              <p className="text-xs text-gray-500">{videoSectionSubtitle}</p>
+            </div>
             {videos.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2">
                 {videos.map(video => (
@@ -192,7 +211,11 @@ const RecipeExperienceModal: React.FC<RecipeExperienceModalProps> = ({ entry, on
                     href={video.videoUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="group block bg-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+                    className={`group block rounded-xl overflow-hidden bg-gray-100 shadow-sm transition-shadow border ${
+                      selectedVideoId === video.id
+                        ? 'border-brand-orange/60 ring-2 ring-brand-orange shadow-lg'
+                        : 'border-transparent hover:shadow-lg'
+                    }`}
                   >
                     <div className="relative aspect-video overflow-hidden">
                       <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
