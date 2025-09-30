@@ -29,7 +29,7 @@ describe('RecipeModal', () => {
           isLoading={false}
           error={null}
           ingredients={['마늘']}
-          onSaveRecipeToJournal={() => ({ id: '1', isNew: true })}
+          onSaveRecipeToJournal={(_, __) => ({ id: '1', isNew: true })}
           savedRecipeNames={[]}
           nutritionSummary={null}
           nutritionContext={null}

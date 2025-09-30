@@ -93,6 +93,7 @@ export interface RecipeMemory {
     ingredients?: string[];
     instructions?: string[];
     videos?: RecipeVideo[];
+    selectedVideoId?: string | null;
     journalPreviewImage?: string | null;
 }
 

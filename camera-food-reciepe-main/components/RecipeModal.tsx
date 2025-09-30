@@ -3,6 +3,7 @@ import type {
   RecipeRecommendation,
   NutritionSummary,
   NutritionContext,
+  RecipeVideo,
 } from '../types';
 import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -56,7 +57,10 @@ interface RecipeModalProps {
   isLoading: boolean;
   error: string | null;
   ingredients: string[];
-  onSaveRecipeToJournal: (recipe: RecipeRecommendation) => { id: string; isNew: boolean };
+  onSaveRecipeToJournal: (
+    recipe: RecipeRecommendation,
+    selectedVideoId: string | null
+  ) => { id: string; isNew: boolean };
   savedRecipeNames: string[];
   nutritionSummary?: NutritionSummary | null;
   nutritionContext?: NutritionContext | null;
@@ -98,6 +102,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const [ingredientsEditorError, setIngredientsEditorError] = useState<string | null>(null);
   const [isApplyingIngredientEdits, setIsApplyingIngredientEdits] = useState(false);
   const [ingredientUpdateFeedback, setIngredientUpdateFeedback] = useState<string | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<RecipeVideo | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -143,7 +148,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     : null;
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
-    const result = onSaveRecipeToJournal(recipe);
+    const selectedVideoIdForRecipe = selectedVideo &&
+      recipe.videos.some(video => video.id === selectedVideo.id)
+        ? selectedVideo.id
+        : null;
+    const result = onSaveRecipeToJournal(recipe, selectedVideoIdForRecipe);
     setJustSavedState({ name: recipe.recipeName, isNew: result.isNew });
   };
 
@@ -186,6 +195,20 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
       setIsApplyingIngredientEdits(false);
     }
   };
+
+  useEffect(() => {
+    if (!selectedVideo) {
+      return;
+    }
+
+    const stillAvailable = recipes.some(recipe =>
+      recipe.videos.some(video => video.id === selectedVideo.id)
+    );
+
+    if (!stillAvailable) {
+      setSelectedVideo(null);
+    }
+  }, [recipes, selectedVideo]);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
@@ -355,6 +378,21 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const isSaved = savedRecipeNamesSet.has(normalizedName);
                 const isJustSaved = justSavedState?.name === recipe.recipeName;
                 const providerVideos = recipe.videos;
+                const recipeSelectedVideo =
+                  selectedVideo && recipe.videos.some(video => video.id === selectedVideo.id)
+                    ? selectedVideo
+                    : null;
+                const videoSectionHeading = recipeSelectedVideo
+                  ? t('recipeModalWatchVideosHeadingSelected', {
+                      title: recipeSelectedVideo.title,
+                    })
+                  : t('recipeModalWatchVideosHeadingDefault');
+                const videoSectionSubtitle = recipeSelectedVideo
+                  ? t('recipeModalWatchVideosSubtitleSelected', {
+                      title: recipeSelectedVideo.title,
+                      channel: recipeSelectedVideo.channelTitle,
+                    })
+                  : t('recipeModalWatchVideosSubtitleDefault');
 
                 return (
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
@@ -525,26 +563,41 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                       </div>
 
                       <div className="space-y-3">
-                        <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalWatchVideos')}</h4>
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-gray-700">{videoSectionHeading}</h4>
+                          <p className="text-xs text-gray-500">{videoSectionSubtitle}</p>
+                        </div>
                         {recipe.videos.length > 0 ? (
                           <div className="grid gap-4 md:grid-cols-2">
                             {recipe.videos.map(video => (
-                              <a
+                              <button
                                 key={video.id}
-                                href={video.videoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group block bg-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+                                type="button"
+                                onClick={() => {
+                                  setSelectedVideo(video);
+                                  if (typeof window !== 'undefined') {
+                                    window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
+                                  }
+                                }}
+                                className={`group block w-full text-left rounded-xl overflow-hidden bg-gray-100 shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-blue/40 border ${
+                                  recipeSelectedVideo?.id === video.id
+                                    ? 'border-brand-blue/40 ring-2 ring-brand-blue shadow-lg'
+                                    : 'border-transparent hover:shadow-lg'
+                                }`}
                               >
                                 <div className="relative aspect-video overflow-hidden">
-                                  <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  <img
+                                    src={video.thumbnailUrl}
+                                    alt={video.title}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                  />
                                   <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">YouTube</span>
                                 </div>
-                                <div className="p-4 space-y-1">
+                                <div className="p-4 space-y-1 bg-gray-100">
                                   <p className="text-sm font-semibold text-gray-800">{video.title}</p>
                                   <p className="text-xs text-gray-500">{video.channelTitle}</p>
                                 </div>
-                              </a>
+                              </button>
                             ))}
                           </div>
                         ) : (

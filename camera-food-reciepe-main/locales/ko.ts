@@ -113,7 +113,12 @@ export const recipeModalNoExtraIngredients = '추가로 필요한 재료가 없�
 export const recipeModalStepByStepTitle = '이 순서대로 천천히 따라오세요';
 export const recipeModalStepByStepSubtitle = '큰 동작은 위에, 필요한 팁은 아래에 정리했어요.';
 export const recipeModalStepByStepHint = '카드를 순서대로 따라가면 부담 없이 완성돼요.';
-export const recipeModalWatchVideos = '영상으로 따라해보세요';
+export const recipeModalWatchVideosHeadingDefault = '영상으로 따라해보세요';
+export const recipeModalWatchVideosHeadingSelected = '선택한 영상: {{title}}';
+export const recipeModalWatchVideosSubtitleDefault =
+  '마음에 드는 YouTube 영상을 골라 새 탭에서 바로 시청해보세요.';
+export const recipeModalWatchVideosSubtitleSelected =
+  '{{channel}} 채널의 "{{title}}" 영상을 열었어요. 영상과 함께 요리를 이어가보세요.';
 export const recipeModalNoVideos = '적절한 영상을 찾지 못했어요. 다른 레시피를 선택해보세요.';
 export const recipeModalNoResults = '추천 결과가 없어요. 재료를 조금만 더 추가해보세요!';
 export const recipeModalClose = '닫기';
@@ -249,4 +254,8 @@ export const experienceModalStepsTitle = '요리 순서';
 export const experienceModalStepsSubtitle = '실제 요리할 때 참고할 요약본이에요.';
 export const experienceModalStepsEmpty = '저장된 조리 단계가 없어요. 상세 레시피 링크를 통해 확인해주세요.';
 export const experienceModalVideosTitle = '함께 저장된 영상';
+export const experienceModalVideosTitleSelected = '저장해 둔 영상: {{title}}';
+export const experienceModalVideosSubtitle = '저장된 영상 링크를 눌러 새 탭에서 바로 재생할 수 있어요.';
+export const experienceModalVideosSubtitleSelected =
+  '{{channel}} 채널의 "{{title}}" 영상을 저장해두었어요. 다시 보고 따라 해보세요.';
 export const experienceModalVideosEmpty = '저장된 영상이 없어요. 레시피 카드의 링크에서 다른 영상을 찾아보세요.';
