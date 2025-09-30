@@ -179,6 +179,7 @@ export const errorNoIngredientsAfterEdit = '최소 한 가지 재료를 입력�
 export const errorPhotoAnalysis = '사진을 분석할 수 없었어요. 다시 시도해주세요.';
 export const errorUnknown = '알 수 없는 오류가 발생했습니다.';
 export const errorNoVideoRecipes = 'YouTube 영상이 있는 레시피를 찾지 못했어요. 재료를 조금만 더 추가해보세요.';
+export const noticeVideoFallback = '영상이 포함된 레시피를 찾지 못해 텍스트 레시피로 대신 보여드릴게요.';
 
 export const error_gemini_api_key =
   'Gemini API 키가 설정되지 않았어요. GEMINI_API_KEY (또는 기존 API_KEY) 환경 변수를 확인해주세요.';
