@@ -1,7 +1,12 @@
 import type { RecipeVideo } from '../types';
 
-const YOUTUBE_API_KEY =
-  (process.env.YOUTUBE_API_KEY as string | undefined) ?? (process.env.API_KEY as string | undefined);
+const resolveYoutubeApiKey = () => {
+  const apiKey = process.env.YOUTUBE_API_KEY as string | undefined;
+  if (!apiKey) {
+    throw new Error('error_youtube_api_key');
+  }
+  return apiKey;
+};
 
 interface YouTubeThumbnailSet {
   url?: string;
@@ -103,9 +108,7 @@ const scoreVideo = (title: string | undefined, recipeName: string, ingredients: 
 };
 
 export async function getRecipeVideos(recipeName: string, ingredients: string[], maxResults = 4): Promise<RecipeVideo[]> {
-  if (!YOUTUBE_API_KEY) {
-    throw new Error('error_youtube_api_key');
-  }
+  const YOUTUBE_API_KEY = resolveYoutubeApiKey();
 
   try {
     const sanitizedIngredients = ingredients.map(ingredient => ingredient.trim()).filter(Boolean);
