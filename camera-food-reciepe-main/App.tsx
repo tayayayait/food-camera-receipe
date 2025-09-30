@@ -156,6 +156,11 @@ const App: React.FC = () => {
   >({});
   const [videoAvailabilityNotice, setVideoAvailabilityNotice] = useState<string | null>(null);
 
+  const translateError = (messageKey: string) => {
+    const translated = t(messageKey as any);
+    return translated || t('errorUnknown');
+  };
+
   useEffect(() => {
     setRecipeMemories(current => {
       if (!current.some(memory => typeof memory.journalPreviewImage === 'undefined')) {
@@ -570,7 +575,7 @@ const App: React.FC = () => {
     } catch (err) {
       const messageKey = err instanceof Error ? err.message : 'errorUnknown';
       setRecipes([]);
-      setError(t(messageKey as any));
+      setError(translateError(messageKey));
       setVideoAvailabilityNotice(null);
     } finally {
       setIsLoadingRecipes(false);
@@ -650,7 +655,7 @@ const App: React.FC = () => {
       const messageKey = err instanceof Error ? err.message : 'errorPhotoAnalysis';
       setSelectedIngredients([]);
       setRecipes([]);
-      setError(t(messageKey as any));
+      setError(translateError(messageKey));
       setVideoAvailabilityNotice(null);
       setRecipeModalOpen(true);
       setNutritionSummary(null);
