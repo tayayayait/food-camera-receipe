@@ -8,11 +8,6 @@ import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
 import {
-  fetchRecipeLinks,
-  recipeProviderNames,
-  type RecipeProviderLinkResult,
-} from '../services/recipeLinkService';
-import {
   clearRecipePreviewCache,
   fetchRecipePreviewImage,
   getRecipePreviewCacheKey,
@@ -83,6 +78,7 @@ interface RecipeModalProps {
   nutritionSummary?: NutritionSummary | null;
   nutritionContext?: NutritionContext | null;
   onViewRecipeNutrition: (recipe: RecipeRecommendation) => void;
+  onApplyDetectedIngredients: (ingredients: string[]) => Promise<string[]>;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -106,18 +102,21 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   nutritionSummary,
   nutritionContext,
   onViewRecipeNutrition,
+  onApplyDetectedIngredients,
 }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
 
   const [justSavedState, setJustSavedState] = useState<{ name: string; isNew: boolean } | null>(null);
-  const [providerLookups, setProviderLookups] = useState<
-    Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }>
-  >({});
   const [previews, setPreviews] = useState<Record<string, PreviewState>>({});
   const previewsRef = useRef<Record<string, PreviewState>>({});
   const refreshTimeoutsRef = useRef<Record<string, number>>({});
   const isMountedRef = useRef(true);
+  const [isEditingIngredients, setIsEditingIngredients] = useState(false);
+  const [ingredientsEditorValue, setIngredientsEditorValue] = useState(() => ingredients.join('\n'));
+  const [ingredientsEditorError, setIngredientsEditorError] = useState<string | null>(null);
+  const [isApplyingIngredientEdits, setIsApplyingIngredientEdits] = useState(false);
+  const [ingredientUpdateFeedback, setIngredientUpdateFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     previewsRef.current = previews;
@@ -145,6 +144,21 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     const timeout = window.setTimeout(() => setJustSavedState(null), 2200);
     return () => window.clearTimeout(timeout);
   }, [justSavedState]);
+
+  useEffect(() => {
+    if (!isEditingIngredients) {
+      setIngredientsEditorValue(ingredients.join('\n'));
+    }
+  }, [ingredients, isEditingIngredients]);
+
+  useEffect(() => {
+    if (!ingredientUpdateFeedback) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setIngredientUpdateFeedback(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [ingredientUpdateFeedback]);
 
   const savedRecipeNamesSet = useMemo(
     () => new Set(savedRecipeNames.map(name => name.trim().toLowerCase())),
@@ -269,103 +283,52 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     [previewKeyForRecipe, requestPreview]
   );
 
-  useEffect(() => {
-    if (!isOpen || recipes.length === 0) {
-      setProviderLookups({});
-      return;
-    }
-
-    let isActive = true;
-    const controller = new AbortController();
-
-    setProviderLookups(() => {
-      const loadingState: Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }> = {};
-      recipes.forEach(recipe => {
-        loadingState[recipe.recipeName] = { status: 'loading', results: [] };
-      });
-      return loadingState;
-    });
-
-    const load = async () => {
-      try {
-        const entries = await Promise.all(
-          recipes.map(async recipe => {
-            const combinedIngredients = Array.from(
-              new Set(
-                [
-                  ...ingredients,
-                  ...recipe.ingredientsNeeded,
-                  ...recipe.matchedIngredients,
-                  ...recipe.missingIngredients,
-                ]
-                  .map(item => item.trim())
-                  .filter(Boolean)
-              )
-            );
-
-            const results = await fetchRecipeLinks(
-              recipe.recipeName,
-              combinedIngredients,
-              controller.signal
-            );
-
-            return [recipe.recipeName, results] as const;
-          })
-        );
-
-        if (!isActive) {
-          return;
-        }
-
-        setProviderLookups(prev => {
-          const nextState = { ...prev };
-          entries.forEach(([name, results]) => {
-            nextState[name] = { status: 'loaded', results };
-          });
-          return nextState;
-        });
-      } catch (error) {
-        if ((error as { name?: string }).name === 'AbortError') {
-          return;
-        }
-
-        if (!isActive) {
-          return;
-        }
-
-        const fallbackMessage =
-          error instanceof Error
-            ? error.message
-            : '직접 링크 정보를 불러오는 중 문제가 발생했어요.';
-
-        setProviderLookups(() => {
-          const failureState: Record<string, { status: 'loading' | 'loaded'; results: RecipeProviderLinkResult[] }> = {};
-          recipes.forEach(recipe => {
-            failureState[recipe.recipeName] = {
-              status: 'loaded',
-              results: recipeProviderNames.map(provider => ({
-                provider,
-                status: 'error' as const,
-                message: fallbackMessage,
-              })),
-            };
-          });
-          return failureState;
-        });
-      }
-    };
-
-    void load();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [ingredients, isOpen, recipes]);
-
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
     const result = onSaveRecipeToJournal(recipe);
     setJustSavedState({ name: recipe.recipeName, isNew: result.isNew });
+  };
+
+  const handleToggleIngredientEditor = () => {
+    setIsEditingIngredients(current => {
+      const next = !current;
+      if (next) {
+        setIngredientsEditorValue(ingredients.join('\n'));
+      }
+      setIngredientsEditorError(null);
+      return next;
+    });
+  };
+
+  const handleCancelIngredientEdit = () => {
+    setIsEditingIngredients(false);
+    setIngredientsEditorValue(ingredients.join('\n'));
+    setIngredientsEditorError(null);
+  };
+
+  const handleApplyIngredientEdits = async () => {
+    const parsed = ingredientsEditorValue
+      .split(/[\n,]/)
+      .map(entry => entry.trim())
+      .filter(Boolean);
+
+    if (parsed.length === 0) {
+      setIngredientsEditorError(t('recipeModalEditIngredientsError'));
+      return;
+    }
+
+    setIsApplyingIngredientEdits(true);
+    try {
+      const updated = await onApplyDetectedIngredients(parsed);
+      setIngredientsEditorValue(updated.join('\n'));
+      setIsEditingIngredients(false);
+      setIngredientsEditorError(null);
+      setIngredientUpdateFeedback(t('recipeModalEditIngredientsSuccess'));
+    } catch (error) {
+      const messageKey = error instanceof Error ? error.message : 'errorUnknown';
+      setIngredientsEditorError(t(messageKey as any));
+    } finally {
+      setIsApplyingIngredientEdits(false);
+    }
   };
 
   return (
@@ -443,20 +406,76 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     {t('recipeModalDetectedIngredientsDescription')}
                   </p>
                 </div>
-                <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-brand-blue/70">
-                  {t('nutritionCardDetectedLabel', { count: ingredients.length })}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {ingredients.map(ingredient => (
-                  <span
-                    key={`detected-${ingredient}`}
-                    className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-medium text-brand-blue"
-                  >
-                    {ingredient}
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-brand-blue/70">
+                    {t('nutritionCardDetectedLabel', { count: ingredients.length })}
                   </span>
-                ))}
+                  <button
+                    type="button"
+                    onClick={isEditingIngredients ? handleCancelIngredientEdit : handleToggleIngredientEditor}
+                    className="inline-flex items-center gap-2 rounded-full border border-brand-blue/20 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.35em] text-brand-blue shadow-sm transition hover:bg-brand-blue/10"
+                  >
+                    {isEditingIngredients
+                      ? t('recipeModalEditIngredientsClose')
+                      : t('recipeModalEditIngredientsButton')}
+                  </button>
+                </div>
               </div>
+              {ingredientUpdateFeedback && !isEditingIngredients && (
+                <p className="text-xs font-semibold text-emerald-600">{ingredientUpdateFeedback}</p>
+              )}
+              {isEditingIngredients ? (
+                <div className="space-y-3">
+                  <textarea
+                    className="w-full rounded-2xl border border-brand-blue/20 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/30"
+                    rows={3}
+                    value={ingredientsEditorValue}
+                    onChange={event => {
+                      setIngredientsEditorValue(event.target.value);
+                      if (ingredientsEditorError) {
+                        setIngredientsEditorError(null);
+                      }
+                    }}
+                    placeholder={t('recipeModalEditIngredientsPlaceholder')}
+                    disabled={isApplyingIngredientEdits}
+                  />
+                  <p className="text-xs text-gray-500">{t('recipeModalEditIngredientsHint')}</p>
+                  {ingredientsEditorError && (
+                    <p className="text-xs font-semibold text-red-500">{ingredientsEditorError}</p>
+                  )}
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelIngredientEdit}
+                      className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-1.5 text-xs font-semibold text-gray-600 shadow-sm hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={isApplyingIngredientEdits}
+                    >
+                      {t('recipeModalEditIngredientsCancel')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyIngredientEdits}
+                      className="inline-flex items-center gap-2 rounded-full bg-brand-blue px-4 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-70"
+                      disabled={isApplyingIngredientEdits}
+                    >
+                      {isApplyingIngredientEdits
+                        ? t('recipeModalEditIngredientsSaving')
+                        : t('recipeModalEditIngredientsApply')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {ingredients.map(ingredient => (
+                    <span
+                      key={`detected-${ingredient}`}
+                      className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-xs font-medium text-brand-blue"
+                    >
+                      {ingredient}
+                    </span>
+                  ))}
+                </div>
+              )}
             </section>
           )}
 
@@ -479,14 +498,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const normalizedName = recipe.recipeName.trim().toLowerCase();
                 const isSaved = savedRecipeNamesSet.has(normalizedName);
                 const isJustSaved = justSavedState?.name === recipe.recipeName;
-                const providerState = providerLookups[recipe.recipeName];
-                const providerStatus = providerState?.status ?? 'loading';
-                const providerResults = providerState?.results ?? [];
                 const previewKey = previewKeyForRecipe(recipe);
                 const previewState = previews[previewKey] ?? { status: 'idle', image: undefined };
                 const isPreviewLoading = previewState.status === 'loading';
                 const isPreviewError = previewState.status === 'error';
                 const previewImage = previewState.status === 'success' ? previewState.image : undefined;
+                const providerVideos = recipe.videos;
 
                 return (
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
@@ -621,40 +638,29 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             {t('recipeModalSearchProvidersLabel')}
                           </p>
                           <div className="flex w-full flex-col gap-2 md:items-end">
-                            {providerStatus === 'loading' && (
-                              <span className="inline-flex items-center rounded-full bg-brand-blue/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-brand-blue animate-pulse">
-                                {t('recipeModalProviderLoading')}
-                              </span>
+                            {providerVideos.length > 0 ? (
+                              providerVideos.map(video => (
+                                <a
+                                  key={`${video.id}-${recipe.recipeName}`}
+                                  href={video.videoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
+                                >
+                                  <span className="flex items-center gap-1 md:justify-end">
+                                    {t('recipeModalProviderYoutubeLabel')}
+                                    {video.channelTitle && (
+                                      <span className="text-[10px] font-normal text-brand-blue/60">· {video.channelTitle}</span>
+                                    )}
+                                  </span>
+                                  <span className="text-[11px] font-normal text-brand-blue/70">{video.title}</span>
+                                </a>
+                              ))
+                            ) : (
+                              <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right">
+                                {t('recipeModalProviderNoVideos')}
+                              </div>
                             )}
-                            {providerStatus === 'loaded' &&
-                              providerResults.map(result =>
-                                result.status === 'success' ? (
-                                  <a
-                                    key={`${result.provider}-${recipe.recipeName}`}
-                                    href={result.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
-                                  >
-                                    <span>{result.provider}</span>
-                                    <span className="text-[11px] font-normal text-brand-blue/70">
-                                      {result.title}
-                                    </span>
-                                  </a>
-                                ) : (
-                                  <div
-                                    key={`${result.provider}-${recipe.recipeName}`}
-                                    className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right"
-                                  >
-                                    {result.message
-                                      ? t('recipeModalProviderErrorWithReason', {
-                                          provider: result.provider,
-                                          reason: result.message,
-                                        })
-                                      : t('recipeModalProviderError', { provider: result.provider })}
-                                  </div>
-                                )
-                              )}
                           </div>
                         </div>
                       </div>

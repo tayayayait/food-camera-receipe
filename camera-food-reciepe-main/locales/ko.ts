@@ -90,6 +90,15 @@ export const recipeModalViewRecipe = '자세한 레시피 보기 →';
 export const recipeModalDetectedIngredientsTitle = '스캔된 재료 확인';
 export const recipeModalDetectedIngredientsDescription =
   '최근 스캔에서 인식한 재료예요. 필요한 재료가 빠지지 않았는지 가볍게 확인해보세요.';
+export const recipeModalEditIngredientsButton = '재료 편집';
+export const recipeModalEditIngredientsClose = '편집 닫기';
+export const recipeModalEditIngredientsPlaceholder = '예: 닭가슴살, 양파, 간장';
+export const recipeModalEditIngredientsHint = '쉼표 또는 줄바꿈으로 재료를 구분해주세요.';
+export const recipeModalEditIngredientsCancel = '취소';
+export const recipeModalEditIngredientsApply = '목록 업데이트';
+export const recipeModalEditIngredientsSaving = '업데이트 중...';
+export const recipeModalEditIngredientsSuccess = '재료 목록이 업데이트되었어요.';
+export const recipeModalEditIngredientsError = '최소 한 가지 재료를 입력해주세요.';
 export const recipeModalPreviewLoading = '플레이팅 미리보기를 준비하고 있어요...';
 export const recipeModalPreviewError = '미리보기를 불러오지 못했어요.';
 export const recipeModalPreviewRetry = '다시 시도';
@@ -112,9 +121,8 @@ export const recipeModalMatchedIngredientsLabel = '이미 보유';
 export const recipeModalBadgeReady = '바로 요리 가능';
 export const recipeModalBadgeMissing = '{{count}}개 더 필요';
 export const recipeModalSearchProvidersLabel = '다음에서 자세한 레시피 찾기:';
-export const recipeModalProviderLoading = '검증된 레시피 링크를 불러오는 중이에요...';
-export const recipeModalProviderError = '{{provider}}에서 바로 열 수 있는 링크를 찾지 못했어요.';
-export const recipeModalProviderErrorWithReason = '{{provider}}에서 바로 열 수 있는 링크를 찾지 못했어요. {{reason}}';
+export const recipeModalProviderNoVideos = 'YouTube 영상 링크를 찾지 못했어요.';
+export const recipeModalProviderYoutubeLabel = 'YouTube';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
 
@@ -167,8 +175,10 @@ export const toolbarJournalHint = '저장한 요리';
 export const errorNoRecipes = '해당 재료와 일치하는 레시피가 없어요. 재료를 한두 개 더 추가해보세요.';
 export const errorScanFirst = '레시피를 추천받으려면 먼저 냉장고를 스캔해주세요.';
 export const errorNoIngredientsFound = '인식할 수 있는 재료를 찾지 못했어요. 더 밝은 곳에서 다시 시도해주세요.';
+export const errorNoIngredientsAfterEdit = '최소 한 가지 재료를 입력해주세요.';
 export const errorPhotoAnalysis = '사진을 분석할 수 없었어요. 다시 시도해주세요.';
 export const errorUnknown = '알 수 없는 오류가 발생했습니다.';
+export const errorNoVideoRecipes = 'YouTube 영상이 있는 레시피를 찾지 못했어요. 재료를 조금만 더 추가해보세요.';
 
 export const error_gemini_api_key =
   'Gemini API 키가 설정되지 않았어요. GEMINI_API_KEY (또는 기존 API_KEY) 환경 변수를 확인해주세요.';
