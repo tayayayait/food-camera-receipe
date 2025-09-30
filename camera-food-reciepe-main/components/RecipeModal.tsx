@@ -12,6 +12,7 @@ import {
   fetchRecipePreviewImage,
   getRecipePreviewCacheKey,
 } from '../services/designPreviewService';
+import { parseIngredientInput } from '../services/ingredientParser';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -306,10 +307,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   };
 
   const handleApplyIngredientEdits = async () => {
-    const parsed = ingredientsEditorValue
-      .split(/[\n,]/)
-      .map(entry => entry.trim())
-      .filter(Boolean);
+    const parsed = parseIngredientInput(ingredientsEditorValue);
 
     if (parsed.length === 0) {
       setIngredientsEditorError(t('recipeModalEditIngredientsError'));

@@ -23,6 +23,7 @@ import { getRecipeSuggestions } from './services/geminiService';
 import { generateDesignPreview, generateJournalPreviewImage } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
+import { parseIngredientInput, sanitizeIngredients } from './services/ingredientParser';
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
@@ -166,31 +167,12 @@ const App: React.FC = () => {
 
   const normalizeIngredientName = (ingredient: string) => ingredient.trim().toLowerCase();
 
-  const sanitizeIngredients = (rawIngredients: string[]) => {
-    const seen = new Set<string>();
-    const sanitized: string[] = [];
-
-    rawIngredients.forEach(ingredient => {
-      const trimmed = ingredient.trim();
-      if (!trimmed) return;
-      const key = trimmed.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      sanitized.push(trimmed);
-    });
-
-    return sanitized;
-  };
-
   const manualInputPreviewCount = useMemo(() => {
     if (!manualIngredientsInput.trim()) {
       return 0;
     }
 
-    const rawEntries = manualIngredientsInput
-      .split(/[\n,]/)
-      .map(entry => entry.trim())
-      .filter(Boolean);
+    const rawEntries = parseIngredientInput(manualIngredientsInput);
 
     return sanitizeIngredients(rawEntries).length;
   }, [manualIngredientsInput]);
@@ -635,10 +617,7 @@ const App: React.FC = () => {
 
   const handleManualIngredientsSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const rawEntries = manualIngredientsInput
-      .split(/[\n,]/)
-      .map(entry => entry.trim())
-      .filter(Boolean);
+    const rawEntries = parseIngredientInput(manualIngredientsInput);
     const sanitized = sanitizeIngredients(rawEntries);
 
     if (sanitized.length === 0) {
