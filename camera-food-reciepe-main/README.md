@@ -19,7 +19,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1iNDCanOspkZrC13tqzikF_
 2. Set the following environment variables in [.env.local](.env.local):
    - `GEMINI_API_KEY` for your Gemini access token. This key powers both text recipes and the built-in vision fallback.
    - `GEMINI_IMAGE_MODEL` (optional) to override the Gemini image model used for AI thumbnails. Defaults to `imagen-3.0-generate-002`; set to `gemini-2.5-flash-image-preview` if your project has access to the preview-only model.
-   - `YOUTUBE_API_KEY` for fetching complementary cooking videos via the YouTube Data API. Supply a valid YouTube Data API key (or `VITE_YOUTUBE_API_KEY` when using Vite-prefixed variables); this value cannot reuse your Gemini key.
+   - `YOUTUBE_API_KEY` for fetching complementary cooking videos via the YouTube Data API. Supply a valid YouTube Data API key (or `VITE_YOUTUBE_API_KEY` when using Vite-prefixed variables); this value cannot reuse your Gemini key. The app does not fall back to `API_KEY`, so be sure to provide one of the dedicated YouTube keys.
    - `VISION_API_URL` (optional) pointing to the HTTPS endpoint of your custom image analysis service.
    - `VISION_API_KEY` (optional) if your service requires bearer-token authentication.
    - `VITE_SPOONACULAR_API_KEY` (optional) for direct recipe matches from the Spoonacular API. Without this key the app will fall back to other providers.
