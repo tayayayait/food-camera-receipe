@@ -27,6 +27,7 @@ import { parseIngredientInput, sanitizeIngredients } from './services/ingredient
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
+import { resolveManualPreviewImage } from './services/manualPreviewService';
 
 type ActiveView = 'intro' | 'pantry' | 'recipes' | 'nutrition' | 'journal';
 
@@ -549,12 +550,17 @@ const App: React.FC = () => {
             availableSet.has(normalizeIngredientName(ingredient))
           );
 
-          return {
+          const manualPreviewImage = resolveManualPreviewImage(recipe);
+          const baseRecommendation: RecipeRecommendation = {
             ...recipe,
             missingIngredients,
             matchedIngredients,
             isFullyMatched: missingIngredients.length === 0,
           };
+
+          return manualPreviewImage
+            ? { ...baseRecommendation, previewImage: manualPreviewImage }
+            : baseRecommendation;
         })
         .sort((a, b) => Number(a.isFullyMatched) === Number(b.isFullyMatched)
           ? a.missingIngredients.length - b.missingIngredients.length
