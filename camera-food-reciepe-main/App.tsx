@@ -508,8 +508,16 @@ const App: React.FC = () => {
         return;
       }
       const enriched = await enrichRecipesWithVideos(suggestions, ingredients);
+      const youtubeReady = enriched.filter(recipe => recipe.videos.length > 0);
+
+      if (youtubeReady.length === 0) {
+        setRecipes([]);
+        setError(t('errorNoVideoRecipes'));
+        return;
+      }
+
       const availableSet = new Set(availableIngredientNames.map(normalizeIngredientName));
-      const recommendations: RecipeRecommendation[] = enriched
+      const recommendations: RecipeRecommendation[] = youtubeReady
         .map(recipe => {
           const missingIngredients = recipe.ingredientsNeeded.filter(
             ingredient => !availableSet.has(normalizeIngredientName(ingredient))
@@ -644,6 +652,24 @@ const App: React.FC = () => {
     openRecipeModalFor(sanitized);
     setActiveView('recipes');
     await fetchRecipesForIngredients(sanitized, sanitized);
+  };
+
+  const handleApplyDetectedIngredients = async (candidate: string[]) => {
+    const sanitized = sanitizeIngredients(candidate);
+
+    if (sanitized.length === 0) {
+      throw new Error('errorNoIngredientsAfterEdit');
+    }
+
+    commitDetectedIngredients(sanitized);
+    setManualIngredientsInput(sanitized.join('\n'));
+    setManualInputError(null);
+    setSelectedIngredients(sanitized);
+
+    const availableIngredientNames = Array.from(new Set([...sanitized]));
+    await fetchRecipesForIngredients(sanitized, availableIngredientNames);
+
+    return sanitized;
   };
 
   const activeItems = items;
@@ -987,6 +1013,7 @@ const App: React.FC = () => {
           nutritionSummary={nutritionSummary}
           nutritionContext={nutritionContext}
           onViewRecipeNutrition={handleViewRecipeNutrition}
+          onApplyDetectedIngredients={handleApplyDetectedIngredients}
         />
       )}
 
