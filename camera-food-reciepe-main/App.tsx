@@ -8,6 +8,7 @@ import type {
   RecipeMemory,
   NutritionSummary,
   NutritionContext,
+  RecipeVideo,
 } from './types';
 import { Category, ItemStatus } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -19,7 +20,7 @@ import RecipeJournal from './components/RecipeJournal';
 import NutritionSummaryCard from './components/NutritionSummaryCard';
 import BottomToolbar from './components/BottomToolbar';
 import RecipeExperienceModal from './components/RecipeExperienceModal';
-import { getRecipeSuggestions } from './services/geminiService';
+import { getRecipeSuggestions, generateInstructionsFromVideo } from './services/geminiService';
 import { generateDesignPreview, generateJournalPreviewImage } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
@@ -155,6 +156,13 @@ const App: React.FC = () => {
     Record<string, 'idle' | 'loading' | 'error' | 'unsupported'>
   >({});
   const [videoAvailabilityNotice, setVideoAvailabilityNotice] = useState<string | null>(null);
+  const [videoRecipe, setVideoRecipe] = useState<RecipeRecommendation | null>(null);
+  const [isVideoRecipeLoading, setIsVideoRecipeLoading] = useState(false);
+  const [videoRecipeError, setVideoRecipeError] = useState<string | null>(null);
+  const [videoRecipeSelection, setVideoRecipeSelection] = useState<{
+    recipeName: string;
+    video: RecipeVideo;
+  } | null>(null);
 
   const translateError = (messageKey: string) => {
     const translated = t(messageKey as any);
@@ -524,6 +532,10 @@ const App: React.FC = () => {
     setError(null);
     setIsLoadingRecipes(true);
     setVideoAvailabilityNotice(null);
+    setVideoRecipe(null);
+    setVideoRecipeSelection(null);
+    setVideoRecipeError(null);
+    setIsVideoRecipeLoading(false);
 
     try {
       const suggestions = await getRecipeSuggestions(ingredients);
@@ -603,6 +615,10 @@ const App: React.FC = () => {
   const handleGetRecipes = async () => {
     setActiveView('recipes');
     setManualInputError(null);
+    setVideoRecipe(null);
+    setVideoRecipeSelection(null);
+    setVideoRecipeError(null);
+    setIsVideoRecipeLoading(false);
     const activeItems = items;
     if (activeItems.length === 0) {
       setSelectedIngredients([]);
@@ -763,6 +779,10 @@ const App: React.FC = () => {
 
   const handleCloseRecipeModal = () => {
     setRecipeModalOpen(false);
+    setVideoRecipe(null);
+    setVideoRecipeSelection(null);
+    setVideoRecipeError(null);
+    setIsVideoRecipeLoading(false);
   };
 
   if (activeView === 'intro') {
@@ -1046,6 +1066,48 @@ const App: React.FC = () => {
     },
   ];
 
+  const handleSelectVideoForRecipe = async (recipe: RecipeRecommendation, video: RecipeVideo) => {
+    setVideoRecipeSelection({ recipeName: recipe.recipeName, video });
+    setIsVideoRecipeLoading(true);
+    setVideoRecipe(null);
+    setVideoRecipeError(null);
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        console.error('Failed to open recipe video', error);
+      }
+    }
+
+    try {
+      const steps = await generateInstructionsFromVideo(video, selectedIngredients, recipe);
+      const enrichedRecipe: RecipeRecommendation = {
+        ...recipe,
+        instructions: steps.length > 0 ? steps : recipe.instructions,
+        videos: recipe.videos,
+        ingredientsNeeded: recipe.ingredientsNeeded,
+      };
+      setVideoRecipe(enrichedRecipe);
+    } catch (error) {
+      const messageKey = error instanceof Error ? error.message : 'errorUnknown';
+      setVideoRecipeError(translateError(messageKey));
+    } finally {
+      setIsVideoRecipeLoading(false);
+    }
+  };
+
+  const videoRecipeState = useMemo(
+    () => ({
+      recipe: videoRecipe,
+      selectedVideo: videoRecipeSelection?.video ?? null,
+      targetRecipeName: videoRecipeSelection?.recipeName ?? videoRecipe?.recipeName ?? null,
+      isLoading: isVideoRecipeLoading,
+      error: videoRecipeError,
+    }),
+    [videoRecipe, videoRecipeSelection, isVideoRecipeLoading, videoRecipeError]
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/30 font-sans text-[#1C2B4B]">
       <Header />
@@ -1075,6 +1137,8 @@ const App: React.FC = () => {
           onViewRecipeNutrition={handleViewRecipeNutrition}
           onApplyDetectedIngredients={handleApplyDetectedIngredients}
           videoAvailabilityNotice={videoAvailabilityNotice}
+          onVideoSelect={handleSelectVideoForRecipe}
+          videoRecipeState={videoRecipeState}
         />
       )}
 

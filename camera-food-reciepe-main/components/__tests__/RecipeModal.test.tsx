@@ -2,10 +2,6 @@
 
 import { describe, expect, it, vi, afterEach } from 'vitest';
 
-vi.mock('../../services/geminiService', () => ({
-  generateInstructionsFromVideo: vi.fn(),
-}));
-
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import { act } from 'react-dom/test-utils';
@@ -18,11 +14,7 @@ import {
   error_youtube_api_key,
   recipeModalVideoInstructionsLoading,
   recipeModalVideoInstructionsError,
-  error_gemini_fetch,
 } from '../../locales/ko';
-import { generateInstructionsFromVideo } from '../../services/geminiService';
-
-const mockedGenerateInstructionsFromVideo = vi.mocked(generateInstructionsFromVideo);
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -53,6 +45,14 @@ const baseProps: RecipeModalProps = {
   onViewRecipeNutrition: () => undefined,
   onApplyDetectedIngredients: async ingredients => ingredients,
   videoAvailabilityNotice: null,
+  onVideoSelect: () => undefined,
+  videoRecipeState: {
+    recipe: null,
+    selectedVideo: null,
+    targetRecipeName: null,
+    isLoading: false,
+    error: null,
+  },
 };
 
 const renderModal = (override: Partial<RecipeModalProps>) => {
@@ -82,7 +82,6 @@ const renderModal = (override: Partial<RecipeModalProps>) => {
 
 describe('RecipeModal', () => {
   afterEach(() => {
-    mockedGenerateInstructionsFromVideo.mockReset();
     vi.clearAllMocks();
     document.body.innerHTML = '';
   });
@@ -104,6 +103,8 @@ describe('RecipeModal', () => {
           onViewRecipeNutrition={() => undefined}
           onApplyDetectedIngredients={async ingredients => ingredients}
           videoAvailabilityNotice={error_youtube_api_key}
+          onVideoSelect={() => undefined}
+          videoRecipeState={baseProps.videoRecipeState}
         />
       </LanguageProvider>
     );
@@ -111,7 +112,7 @@ describe('RecipeModal', () => {
     expect(html).toContain(error_youtube_api_key);
   });
 
-  it('fetches and replaces instructions after selecting a video', async () => {
+  it('invokes onVideoSelect when a video card is clicked', async () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
       instructions: ['기존 단계 1', '기존 단계 2'],
@@ -126,14 +127,8 @@ describe('RecipeModal', () => {
       ],
     };
 
-    let resolveInstructions: (value: string[]) => void = () => undefined;
-    const instructionsPromise = new Promise<string[]>(resolve => {
-      resolveInstructions = resolve;
-    });
-    mockedGenerateInstructionsFromVideo.mockReturnValueOnce(instructionsPromise);
-
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-    const { container, unmount } = renderModal({ recipes: [recipeWithVideo] });
+    const onVideoSelect = vi.fn();
+    const { container, unmount } = renderModal({ recipes: [recipeWithVideo], onVideoSelect });
 
     try {
       const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
@@ -145,33 +140,86 @@ describe('RecipeModal', () => {
         videoButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
 
-      expect(openSpy).toHaveBeenCalledWith(
-        recipeWithVideo.videos[0].videoUrl,
-        '_blank',
-        'noopener,noreferrer'
-      );
-      expect(mockedGenerateInstructionsFromVideo).toHaveBeenCalledWith(
-        recipeWithVideo.videos[0],
-        baseProps.ingredients,
-        recipeWithVideo
-      );
-      expect(container.textContent).toContain(recipeModalVideoInstructionsLoading);
-
-      await act(async () => {
-        resolveInstructions(['1. 새 단계 준비', '2. 다음 단계 이어가기']);
-        await Promise.resolve();
-      });
-
-      expect(container.textContent).toContain('새 단계 준비');
-      expect(container.textContent).toContain('다음 단계 이어가기');
-      expect(container.textContent).not.toContain('기존 단계 1');
+      expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
     } finally {
-      openSpy.mockRestore();
       unmount();
     }
   });
 
-  it('shows an error state when video-aligned instructions fail', async () => {
+  it('shows a loading state for the targeted video recipe', () => {
+    const recipeWithVideo: RecipeRecommendation = {
+      ...baseRecipe,
+      instructions: ['기존 단계 1'],
+      videos: [
+        {
+          id: 'video-1',
+          title: 'Loading Video',
+          channelTitle: 'Channel',
+          thumbnailUrl: 'thumb.jpg',
+          videoUrl: 'https://example.com/video',
+        },
+      ],
+    };
+
+    const { container, unmount } = renderModal({
+      recipes: [recipeWithVideo],
+      videoRecipeState: {
+        recipe: null,
+        selectedVideo: recipeWithVideo.videos[0],
+        targetRecipeName: recipeWithVideo.recipeName,
+        isLoading: true,
+        error: null,
+      },
+    });
+
+    try {
+      expect(container.textContent).toContain(recipeModalVideoInstructionsLoading);
+    } finally {
+      unmount();
+    }
+  });
+
+  it('renders video-aligned instructions when available', () => {
+    const recipeWithVideo: RecipeRecommendation = {
+      ...baseRecipe,
+      instructions: ['기존 단계 1'],
+      videos: [
+        {
+          id: 'video-1',
+          title: 'Success Video',
+          channelTitle: 'Channel',
+          thumbnailUrl: 'thumb.jpg',
+          videoUrl: 'https://example.com/video',
+        },
+      ],
+    };
+
+    const enrichedRecipe: RecipeRecommendation = {
+      ...recipeWithVideo,
+      instructions: ['1. 새 단계 준비', '2. 다음 단계 이어가기'],
+    };
+
+    const { container, unmount } = renderModal({
+      recipes: [recipeWithVideo],
+      videoRecipeState: {
+        recipe: enrichedRecipe,
+        selectedVideo: recipeWithVideo.videos[0],
+        targetRecipeName: recipeWithVideo.recipeName,
+        isLoading: false,
+        error: null,
+      },
+    });
+
+    try {
+      expect(container.textContent).toContain('새 단계 준비');
+      expect(container.textContent).toContain('다음 단계 이어가기');
+      expect(container.textContent).not.toContain('기존 단계 1');
+    } finally {
+      unmount();
+    }
+  });
+
+  it('shows an error state when video-aligned instructions fail', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
       instructions: ['기존 단계 1'],
@@ -186,38 +234,20 @@ describe('RecipeModal', () => {
       ],
     };
 
-    let rejectInstructions: (reason?: unknown) => void = () => undefined;
-    const failingPromise = new Promise<string[]>((_, reject) => {
-      rejectInstructions = reject;
+    const { container, unmount } = renderModal({
+      recipes: [recipeWithVideo],
+      videoRecipeState: {
+        recipe: null,
+        selectedVideo: recipeWithVideo.videos[0],
+        targetRecipeName: recipeWithVideo.recipeName,
+        isLoading: false,
+        error: recipeModalVideoInstructionsError,
+      },
     });
-    mockedGenerateInstructionsFromVideo.mockReturnValueOnce(failingPromise);
-
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-    const { container, unmount } = renderModal({ recipes: [recipeWithVideo] });
 
     try {
-      const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
-        button.textContent?.includes(recipeWithVideo.videos[0].title)
-      );
-      expect(videoButton).toBeDefined();
-
-      await act(async () => {
-        videoButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-
-      expect(openSpy).toHaveBeenCalled();
-      expect(container.textContent).toContain(recipeModalVideoInstructionsLoading);
-
-      await act(async () => {
-        rejectInstructions(new Error('error_gemini_fetch'));
-        await Promise.resolve();
-      });
-
       expect(container.textContent).toContain(recipeModalVideoInstructionsError);
-      expect(container.textContent).toContain(error_gemini_fetch);
-      expect(container.textContent).toContain('기존 단계 1');
     } finally {
-      openSpy.mockRestore();
       unmount();
     }
   });
