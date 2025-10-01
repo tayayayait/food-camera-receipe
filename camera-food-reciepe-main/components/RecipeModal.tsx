@@ -3,6 +3,7 @@ import type {
   RecipeRecommendation,
   NutritionSummary,
   NutritionContext,
+  RecipeVideo,
 } from '../types';
 import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
@@ -79,6 +80,8 @@ interface RecipeModalProps {
   nutritionContext?: NutritionContext | null;
   onViewRecipeNutrition: (recipe: RecipeRecommendation) => void;
   onApplyDetectedIngredients: (ingredients: string[]) => Promise<string[]>;
+  onSelectVideoForRecipe?: (recipe: RecipeRecommendation, video: RecipeVideo) => void;
+  videoRecipeAnalysis?: { recipeName: string; videoId: string } | null;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -103,6 +106,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   nutritionContext,
   onViewRecipeNutrition,
   onApplyDetectedIngredients,
+  onSelectVideoForRecipe,
+  videoRecipeAnalysis,
 }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
@@ -174,6 +179,37 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     : null;
 
   const previewKeyForRecipe = useCallback((recipe: RecipeRecommendation) => getRecipePreviewCacheKey(recipe), []);
+
+  const renderVideoActionButton = useCallback(
+    (currentRecipe: RecipeRecommendation, video: RecipeVideo) => {
+      if (!onSelectVideoForRecipe) {
+        return null;
+      }
+
+      const isAnalyzing =
+        videoRecipeAnalysis?.recipeName === currentRecipe.recipeName &&
+        videoRecipeAnalysis?.videoId === video.id;
+      const isApplied = currentRecipe.sourceVideoId === video.id;
+
+      const label = isAnalyzing
+        ? t('recipeModalVideoAnalyzeLoading')
+        : isApplied
+          ? t('recipeModalVideoAnalyzeApplied')
+          : t('recipeModalVideoAnalyzeAction');
+
+      return (
+        <button
+          type="button"
+          onClick={() => onSelectVideoForRecipe(currentRecipe, video)}
+          disabled={isAnalyzing || isApplied}
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand-blue/30 bg-white/90 px-3 py-1.5 text-[11px] font-semibold text-brand-blue transition hover:bg-brand-blue/10 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {label}
+        </button>
+      );
+    },
+    [onSelectVideoForRecipe, t, videoRecipeAnalysis]
+  );
 
   useEffect(() => {
     if (!isOpen) {
@@ -637,24 +673,26 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
                             {t('recipeModalSearchProvidersLabel')}
                           </p>
-                          <div className="flex w-full flex-col gap-2 md:items-end">
+                          <div className="flex w-full flex-col gap-3 md:items-end">
                             {providerVideos.length > 0 ? (
                               providerVideos.map(video => (
-                                <a
-                                  key={`${video.id}-${recipe.recipeName}`}
-                                  href={video.videoUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
-                                >
-                                  <span className="flex items-center gap-1 md:justify-end">
-                                    {t('recipeModalProviderYoutubeLabel')}
-                                    {video.channelTitle && (
-                                      <span className="text-[10px] font-normal text-brand-blue/60">· {video.channelTitle}</span>
-                                    )}
-                                  </span>
-                                  <span className="text-[11px] font-normal text-brand-blue/70">{video.title}</span>
-                                </a>
+                                <div key={`${video.id}-${recipe.recipeName}`} className="flex w-full flex-col gap-2">
+                                  <a
+                                    href={video.videoUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
+                                  >
+                                    <span className="flex items-center gap-1 md:justify-end">
+                                      {t('recipeModalProviderYoutubeLabel')}
+                                      {video.channelTitle && (
+                                        <span className="text-[10px] font-normal text-brand-blue/60">· {video.channelTitle}</span>
+                                      )}
+                                    </span>
+                                    <span className="text-[11px] font-normal text-brand-blue/70">{video.title}</span>
+                                  </a>
+                                  {renderVideoActionButton(recipe, video)}
+                                </div>
                               ))
                             ) : (
                               <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right">
@@ -721,22 +759,29 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         {recipe.videos.length > 0 ? (
                           <div className="grid gap-4 md:grid-cols-2">
                             {recipe.videos.map(video => (
-                              <a
+                              <div
                                 key={video.id}
-                                href={video.videoUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group block bg-gray-100 rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
+                                className="group flex flex-col gap-3 rounded-xl bg-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-shadow"
                               >
-                                <div className="relative aspect-video overflow-hidden">
-                                  <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                                  <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">YouTube</span>
+                                <a
+                                  href={video.videoUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="block"
+                                >
+                                  <div className="relative aspect-video overflow-hidden">
+                                    <img src={video.thumbnailUrl} alt={video.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                    <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">YouTube</span>
+                                  </div>
+                                  <div className="p-4 space-y-1">
+                                    <p className="text-sm font-semibold text-gray-800">{video.title}</p>
+                                    <p className="text-xs text-gray-500">{video.channelTitle}</p>
+                                  </div>
+                                </a>
+                                <div className="px-4 pb-4">
+                                  {renderVideoActionButton(recipe, video)}
                                 </div>
-                                <div className="p-4 space-y-1">
-                                  <p className="text-sm font-semibold text-gray-800">{video.title}</p>
-                                  <p className="text-xs text-gray-500">{video.channelTitle}</p>
-                                </div>
-                              </a>
+                              </div>
                             ))}
                           </div>
                         ) : (

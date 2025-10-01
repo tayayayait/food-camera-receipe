@@ -38,6 +38,45 @@ const recipeSchema = {
     }
 };
 
+const singleRecipeSchema = {
+    type: Type.OBJECT,
+    properties: {
+        recipeName: {
+            type: Type.STRING,
+            description: 'The name of the recipe.',
+        },
+        description: {
+            type: Type.STRING,
+            description: 'A short, enticing description of the dish.',
+        },
+        ingredientsNeeded: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.STRING,
+            },
+            description:
+                'A list of common ingredients needed for this recipe. Keep quantities concise and easy to follow.',
+        },
+        instructions: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.STRING,
+            },
+            description:
+                'Step-by-step cooking directions written in concise sentences that a middle school student can follow.',
+        },
+    },
+    required: ['recipeName', 'description', 'ingredientsNeeded', 'instructions'],
+};
+
+interface VideoRecipeContextInput {
+    videoId: string;
+    videoTitle?: string;
+    channelTitle?: string;
+    contextText: string;
+    fallbackIngredients: string[];
+}
+
 export async function getRecipeSuggestions(ingredients: string[]): Promise<Recipe[]> {
     if (!GEMINI_API_KEY || !ai) {
         throw new Error('error_gemini_api_key');
@@ -90,5 +129,94 @@ export async function getRecipeSuggestions(ingredients: string[]): Promise<Recip
     } catch (error) {
         console.error('Error fetching recipe suggestions from Gemini API:', error);
         throw new Error('error_gemini_fetch');
+    }
+}
+
+export async function getRecipeFromVideoContext({
+    videoId,
+    videoTitle,
+    channelTitle,
+    contextText,
+    fallbackIngredients,
+}: VideoRecipeContextInput): Promise<Recipe> {
+    if (!GEMINI_API_KEY || !ai) {
+        throw new Error('error_gemini_api_key');
+    }
+
+    const sanitizedContext = contextText.trim();
+    const fallbackList = fallbackIngredients.map(ingredient => ingredient.trim()).filter(Boolean);
+
+    const fallbackDirective =
+        fallbackList.length > 0
+            ? `If the transcript or description does not specify concrete ingredients, incorporate these pantry items when reasonable: ${fallbackList.join(
+                  ', '
+              )}.`
+            : 'If the transcript or description omits certain ingredients, make reasonable assumptions for a Korean home kitchen without inventing uncommon items.';
+
+    const metadataLines = [
+        videoTitle ? `Video Title: ${videoTitle}` : null,
+        channelTitle ? `Channel: ${channelTitle}` : null,
+        `YouTube Video ID: ${videoId}`,
+        sanitizedContext
+            ? `Video Context (description, transcript excerpts):\n${sanitizedContext}`
+            : 'Video Context: (no transcript or description available)',
+    ]
+        .filter((line): line is string => Boolean(line))
+        .join('\n\n');
+
+    const prompt = `You are a culinary assistant that transforms YouTube cooking video context into structured recipes. Use the provided context from the video to infer the dish name, a short enticing description, ingredients, and clear numbered instructions (at least four steps). ${fallbackDirective}
+
+Context to analyse:
+${metadataLines}
+
+Return only JSON matching the schema.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: [
+                {
+                    role: 'user',
+                    parts: [{ text: prompt }],
+                },
+            ],
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: singleRecipeSchema,
+                temperature: 0.5,
+            },
+        });
+
+        let jsonText: string | undefined = response.text;
+
+        if (!jsonText) {
+            const fallback = (response as { output_text?: string | undefined }).output_text;
+            if (typeof fallback === 'string') {
+                jsonText = fallback;
+            }
+        }
+
+        const trimmedJson = jsonText?.trim();
+
+        if (!trimmedJson) {
+            throw new Error('error_gemini_video_recipe');
+        }
+
+        const recipe = JSON.parse(trimmedJson) as Recipe;
+        return {
+            ...recipe,
+            ingredientsNeeded: Array.isArray(recipe.ingredientsNeeded)
+                ? recipe.ingredientsNeeded.map(item => String(item).trim()).filter(Boolean)
+                : [],
+            instructions: Array.isArray(recipe.instructions)
+                ? recipe.instructions.map(step => String(step).trim()).filter(Boolean)
+                : [],
+        };
+    } catch (error) {
+        console.error('Error generating recipe from video context via Gemini API:', error);
+        if (error instanceof Error && error.message.startsWith('error_')) {
+            throw error;
+        }
+        throw new Error('error_gemini_video_recipe');
     }
 }
