@@ -9,7 +9,6 @@ import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
 import { parseIngredientInput } from '../services/ingredientParser';
-import { generateInstructionsFromVideo } from '../services/geminiService';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -51,11 +50,12 @@ const extractStepSummary = (instruction: string) => {
   return { summary: cleaned, details: '' };
 };
 
-type VideoInstructionsState = {
-  status: 'idle' | 'loading' | 'success' | 'error';
-  videoId: string | null;
-  steps: string[];
-  errorMessage?: string;
+type VideoRecipeState = {
+  recipe: RecipeRecommendation | null;
+  selectedVideo: RecipeVideo | null;
+  targetRecipeName: string | null;
+  isLoading: boolean;
+  error: string | null;
 };
 
 interface RecipeModalProps {
@@ -75,6 +75,8 @@ interface RecipeModalProps {
   onViewRecipeNutrition: (recipe: RecipeRecommendation) => void;
   onApplyDetectedIngredients: (ingredients: string[]) => Promise<string[]>;
   videoAvailabilityNotice?: string | null;
+  onVideoSelect: (recipe: RecipeRecommendation, video: RecipeVideo) => void;
+  videoRecipeState: VideoRecipeState;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -100,6 +102,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   onViewRecipeNutrition,
   onApplyDetectedIngredients,
   videoAvailabilityNotice,
+  onVideoSelect,
+  videoRecipeState,
 }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
@@ -110,8 +114,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const [ingredientsEditorError, setIngredientsEditorError] = useState<string | null>(null);
   const [isApplyingIngredientEdits, setIsApplyingIngredientEdits] = useState(false);
   const [ingredientUpdateFeedback, setIngredientUpdateFeedback] = useState<string | null>(null);
-  const [selectedVideo, setSelectedVideo] = useState<RecipeVideo | null>(null);
-  const [videoInstructionStates, setVideoInstructionStates] = useState<Record<string, VideoInstructionsState>>({});
 
   useEffect(() => {
     if (!isOpen) {
@@ -157,17 +159,10 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     : null;
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
-    const instructionsState = videoInstructionStates[recipe.recipeName];
-    const enrichedInstructions =
-      instructionsState?.status === 'success' ? instructionsState.steps : recipe.instructions;
-    const recipeForSaving =
-      instructionsState?.status === 'success'
-        ? { ...recipe, instructions: enrichedInstructions }
-        : recipe;
-    const selectedVideoIdForRecipe = selectedVideo &&
-      recipe.videos.some(video => video.id === selectedVideo.id)
-        ? selectedVideo.id
-        : null;
+    const isVideoEnhanced = videoRecipeState.recipe?.recipeName === recipe.recipeName;
+    const recipeForSaving = isVideoEnhanced && videoRecipeState.recipe ? videoRecipeState.recipe : recipe;
+    const selectedVideoIdForRecipe =
+      isVideoEnhanced && videoRecipeState.selectedVideo ? videoRecipeState.selectedVideo.id : null;
     const result = onSaveRecipeToJournal(recipeForSaving, selectedVideoIdForRecipe);
     setJustSavedState({ name: recipe.recipeName, isNew: result.isNew });
   };
@@ -211,101 +206,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
       setIsApplyingIngredientEdits(false);
     }
   };
-
-  const handleSelectVideo = (recipe: RecipeRecommendation, video: RecipeVideo) => {
-    setSelectedVideo(video);
-    if (typeof window !== 'undefined') {
-      window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
-    }
-
-    const recipeKey = recipe.recipeName;
-    const existingState = videoInstructionStates[recipeKey];
-
-    if (existingState?.status === 'success' && existingState.videoId === video.id) {
-      return;
-    }
-
-    setVideoInstructionStates(prev => ({
-      ...prev,
-      [recipeKey]: {
-        status: 'loading',
-        videoId: video.id,
-        steps:
-          existingState?.status === 'success' && existingState.videoId === video.id
-            ? existingState.steps
-            : recipe.instructions,
-      },
-    }));
-
-    (async () => {
-      try {
-        const steps = await generateInstructionsFromVideo(video, ingredients, recipe);
-        setVideoInstructionStates(prev => {
-          const current = prev[recipeKey];
-          if (!current || current.videoId !== video.id) {
-            return prev;
-          }
-          return {
-            ...prev,
-            [recipeKey]: {
-              status: 'success',
-              videoId: video.id,
-              steps,
-            },
-          };
-        });
-      } catch (error) {
-        console.error('Failed to generate instructions for selected video', error);
-        const fallbackMessage = t('error_gemini_fetch' as any);
-        const translatedMessage =
-          error instanceof Error && error.message ? t(error.message as any) : '';
-        const errorMessage = translatedMessage || fallbackMessage;
-        setVideoInstructionStates(prev => {
-          const current = prev[recipeKey];
-          if (!current || current.videoId !== video.id) {
-            return prev;
-          }
-          return {
-            ...prev,
-            [recipeKey]: {
-              status: 'error',
-              videoId: video.id,
-              steps: recipe.instructions,
-              errorMessage,
-            },
-          };
-        });
-      }
-    })();
-  };
-
-  useEffect(() => {
-    if (!selectedVideo) {
-      return;
-    }
-
-    const stillAvailable = recipes.some(recipe =>
-      recipe.videos.some(video => video.id === selectedVideo.id)
-    );
-
-    if (!stillAvailable) {
-      setSelectedVideo(null);
-    }
-  }, [recipes, selectedVideo]);
-
-  useEffect(() => {
-    setVideoInstructionStates(current => {
-      const allowedNames = new Set(recipes.map(recipe => recipe.recipeName));
-      const entries = Object.entries(current).filter(([name]) => allowedNames.has(name));
-      if (entries.length === Object.keys(current).length) {
-        return current;
-      }
-      return entries.reduce<Record<string, VideoInstructionsState>>((acc, [name, state]) => {
-        acc[name] = state;
-        return acc;
-      }, {});
-    });
-  }, [recipes]);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
@@ -474,35 +374,45 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const normalizedName = recipe.recipeName.trim().toLowerCase();
                 const isSaved = savedRecipeNamesSet.has(normalizedName);
                 const isJustSaved = justSavedState?.name === recipe.recipeName;
-                const providerVideos = recipe.videos;
-                const instructionsState = videoInstructionStates[recipe.recipeName];
-                const instructionsToDisplay =
-                  instructionsState?.status === 'success'
-                    ? instructionsState.steps
-                    : recipe.instructions;
-                const showLoadingInstructions = instructionsState?.status === 'loading';
-                const showErrorInstructions = instructionsState?.status === 'error';
-                const shouldRenderInstructions =
-                  instructionsToDisplay.length > 0 || showLoadingInstructions || showErrorInstructions;
-                const recipeSelectedVideo =
-                  selectedVideo && recipe.videos.some(video => video.id === selectedVideo.id)
-                    ? selectedVideo
+                const activeVideoRecipe =
+                  videoRecipeState.recipe?.recipeName === recipe.recipeName
+                    ? videoRecipeState.recipe
                     : null;
-                const videoSectionHeading = recipeSelectedVideo
+                const isVideoTargeted = videoRecipeState.targetRecipeName === recipe.recipeName;
+                const selectedVideo =
+                  isVideoTargeted && videoRecipeState.selectedVideo
+                    ? videoRecipeState.selectedVideo
+                    : null;
+                const providerVideos =
+                  activeVideoRecipe?.videos?.length ? activeVideoRecipe.videos : recipe.videos;
+                const instructionsToDisplay =
+                  activeVideoRecipe?.instructions?.length
+                    ? activeVideoRecipe.instructions
+                    : recipe.instructions;
+                const ingredientsNeededToDisplay =
+                  activeVideoRecipe?.ingredientsNeeded?.length
+                    ? activeVideoRecipe.ingredientsNeeded
+                    : recipe.ingredientsNeeded;
+                const videoSectionHeading = selectedVideo
                   ? t('recipeModalWatchVideosHeadingSelected', {
-                      title: recipeSelectedVideo.title,
+                      title: selectedVideo.title,
                     })
                   : t('recipeModalWatchVideosHeadingDefault');
-                const videoSectionSubtitle = recipeSelectedVideo
+                const videoSectionSubtitle = selectedVideo
                   ? t('recipeModalWatchVideosSubtitleSelected', {
-                      title: recipeSelectedVideo.title,
-                      channel: recipeSelectedVideo.channelTitle,
+                      title: selectedVideo.title,
+                      channel: selectedVideo.channelTitle,
                     })
                   : t('recipeModalWatchVideosSubtitleDefault');
+                const recipeForDisplay = activeVideoRecipe ?? recipe;
+                const shouldRenderInstructions = instructionsToDisplay.length > 0;
+                const showVideoStatusCard =
+                  isVideoTargeted &&
+                  (videoRecipeState.isLoading || videoRecipeState.error || !!activeVideoRecipe);
 
                 return (
-                  <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-                    <div className="space-y-4">
+                  <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+                    <div className="space-y-6">
                       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                         <div className="space-y-3 flex-1">
                           <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
@@ -516,7 +426,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             <div className="flex flex-col items-end gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleSaveToJournal(recipe)}
+                                onClick={() => handleSaveToJournal(recipeForDisplay)}
                                 className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold shadow transition ${
                                   isSaved
                                     ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
@@ -532,63 +442,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                     : t('recipeModalSaveExisting')}
                                 </p>
                               ) : (
-                                isSaved && (
-                                  <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
-                                )
+                                isSaved && <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
                               )}
                             </div>
                           </div>
-
-                          {shouldRenderInstructions && (
-                            <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div>
-                                  <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
-                                  <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
-                                </div>
-                              </div>
-                              {showLoadingInstructions ? (
-                                <div className="mt-4 rounded-2xl border border-dashed border-brand-orange/40 bg-white/60 p-4 text-center text-xs font-semibold text-brand-orange">
-                                  {t('recipeModalVideoInstructionsLoading')}
-                                </div>
-                              ) : (
-                                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                  {instructionsToDisplay.map((instruction, instructionIndex) => {
-                                    const { summary, details } = extractStepSummary(instruction);
-                                    return (
-                                      <div
-                                        key={`${recipe.recipeName}-instruction-${instructionIndex}`}
-                                        className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
-                                      >
-                                        <div className="flex items-start gap-3">
-                                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
-                                            {instructionIndex + 1}
-                                          </span>
-                                          <div className="space-y-1">
-                                            <p className="text-sm font-semibold text-gray-800">{summary}</p>
-                                            {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                              {showErrorInstructions && (
-                                <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">
-                                  <p className="font-semibold">{t('recipeModalVideoInstructionsError')}</p>
-                                  {instructionsState?.errorMessage && (
-                                    <p className="mt-1 leading-relaxed">{instructionsState.errorMessage}</p>
-                                  )}
-                                </div>
-                              )}
-                              <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
-                                {t('recipeModalStepByStepHint')}
-                              </p>
-                            </div>
-                          )}
                         </div>
-                        <div className="flex flex-col items-start md:items-end gap-2 w-full md:w-72">
+                        <div className="flex w-full flex-col items-start gap-2 md:w-72 md:items-end">
                           <span
                             className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                               recipe.isFullyMatched
@@ -600,52 +459,136 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                               ? t('recipeModalBadgeReady')
                               : t('recipeModalBadgeMissing', { count: recipe.missingIngredients.length })}
                           </span>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
-                            {t('recipeModalSearchProvidersLabel')}
-                          </p>
-                          <div className="flex w-full flex-col gap-2 md:items-end">
-                            {providerVideos.length > 0 ? (
-                              providerVideos.map(video => (
-                                <a
-                                  key={`${video.id}-${recipe.recipeName}`}
-                                  href={video.videoUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex w-full flex-col items-start gap-1 rounded-xl bg-brand-blue/10 px-3 py-2 text-left text-xs font-semibold text-brand-blue shadow-sm transition hover:bg-brand-blue/20 md:items-end md:text-right"
-                                >
-                                  <span className="flex items-center gap-1 md:justify-end">
-                                    {t('recipeModalProviderYoutubeLabel')}
-                                    {video.channelTitle && (
-                                      <span className="text-[10px] font-normal text-brand-blue/60">· {video.channelTitle}</span>
-                                    )}
-                                  </span>
-                                  <span className="text-[11px] font-normal text-brand-blue/70">{video.title}</span>
-                                </a>
-                              ))
-                            ) : (
-                              <div className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-500 shadow-sm md:text-right">
-                                {videoAvailabilityNotice ?? t('recipeModalProviderNoVideos')}
-                              </div>
-                            )}
-                          </div>
                         </div>
                       </div>
 
+                      <section className="space-y-4">
+                        <div className="space-y-1">
+                          <h4 className="text-sm font-semibold text-gray-700">{videoSectionHeading}</h4>
+                          <p className="text-xs text-gray-500">{videoSectionSubtitle}</p>
+                        </div>
+                        {providerVideos.length > 0 ? (
+                          <div className="grid gap-4 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                            <div className="grid gap-4 sm:grid-cols-2">
+                              {providerVideos.map(video => {
+                                const isSelected = selectedVideo?.id === video.id;
+                                return (
+                                  <button
+                                    key={video.id}
+                                    type="button"
+                                    onClick={() => onVideoSelect(recipe, video)}
+                                    className={`group block w-full text-left rounded-xl overflow-hidden bg-gray-100 shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-blue/40 border ${
+                                      isSelected
+                                        ? 'border-brand-blue/40 ring-2 ring-brand-blue shadow-lg'
+                                        : 'border-transparent hover:shadow-lg'
+                                    }`}
+                                  >
+                                    <div className="relative aspect-video overflow-hidden">
+                                      <img
+                                        src={video.thumbnailUrl}
+                                        alt={video.title}
+                                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                                      />
+                                      <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 text-xs text-white">
+                                        YouTube
+                                      </span>
+                                    </div>
+                                    <div className="bg-gray-100 p-4 space-y-1">
+                                      <p className="text-sm font-semibold text-gray-800">{video.title}</p>
+                                      <p className="text-xs text-gray-500">{video.channelTitle}</p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="rounded-2xl border border-brand-blue/20 bg-white p-4 space-y-3">
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-blue/60">
+                                {t('recipeModalSearchProvidersLabel')}
+                              </p>
+                              <ul className="space-y-2">
+                                {providerVideos.map(video => {
+                                  const isSelected = selectedVideo?.id === video.id;
+                                  return (
+                                    <li key={`${recipe.recipeName}-provider-${video.id}`}>
+                                      <button
+                                        type="button"
+                                        onClick={() => onVideoSelect(recipe, video)}
+                                        className={`w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                                          isSelected
+                                            ? 'bg-brand-blue text-white shadow'
+                                            : 'bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20'
+                                        }`}
+                                      >
+                                        <span className="flex items-center gap-1">
+                                          {t('recipeModalProviderYoutubeLabel')}
+                                          {video.channelTitle && (
+                                            <span
+                                              className={`text-[10px] font-normal ${
+                                                isSelected ? 'text-white/90' : 'text-brand-blue/60'
+                                              }`}
+                                            >
+                                              · {video.channelTitle}
+                                            </span>
+                                          )}
+                                        </span>
+                                        <span
+                                          className={`block text-[11px] font-normal ${
+                                            isSelected ? 'text-white/90' : 'text-brand-blue/70'
+                                          }`}
+                                        >
+                                          {video.title}
+                                        </span>
+                                      </button>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-400">
+                            {videoAvailabilityNotice ?? t('recipeModalNoVideos')}
+                          </p>
+                        )}
+                      </section>
+
+                      {showVideoStatusCard && (
+                        <section className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4">
+                          {videoRecipeState.isLoading ? (
+                            <div className="flex items-center gap-2 text-brand-blue">
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
+                              <span className="text-sm font-semibold">
+                                {t('recipeModalVideoInstructionsLoading')}
+                              </span>
+                            </div>
+                          ) : videoRecipeState.error ? (
+                            <p className="text-sm font-semibold text-red-600">{videoRecipeState.error}</p>
+                          ) : (
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-brand-blue">{videoSectionSubtitle}</p>
+                              <p className="text-xs text-brand-blue/70">{t('recipeModalStepByStepHint')}</p>
+                            </div>
+                          )}
+                        </section>
+                      )}
+
                       <div className="bg-gray-50 rounded-xl p-4">
                         <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
-                        {recipe.ingredientsNeeded.length === 0 ? (
-                          <p className="text-xs text-gray-500 mt-2 italic">{t('recipeModalNoExtraIngredients')}</p>
+                        {ingredientsNeededToDisplay.length === 0 ? (
+                          <p className="mt-2 text-xs italic text-gray-500">{t('recipeModalNoExtraIngredients')}</p>
                         ) : recipe.isFullyMatched ? (
-                          <p className="text-xs font-semibold text-emerald-600 mt-2">{t('recipeModalAllIngredientsOnHand')}</p>
+                          <p className="mt-2 text-xs font-semibold text-emerald-600">{t('recipeModalAllIngredientsOnHand')}</p>
                         ) : (
                           <div className="mt-3 space-y-3">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">{t('recipeModalMissingIngredientsLabel')}</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                                {t('recipeModalMissingIngredientsLabel')}
+                              </p>
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {recipe.missingIngredients.map(ingredient => (
                                   <span
                                     key={`missing-${recipe.recipeName}-${ingredient}`}
-                                    className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm border border-amber-100"
+                                    className="inline-flex items-center rounded-full border border-amber-100 bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm"
                                   >
                                     {ingredient}
                                   </span>
@@ -654,12 +597,14 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             </div>
                             {recipe.matchedIngredients.length > 0 && (
                               <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{t('recipeModalMatchedIngredientsLabel')}</p>
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                  {t('recipeModalMatchedIngredientsLabel')}
+                                </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   {recipe.matchedIngredients.map(ingredient => (
                                     <span
                                       key={`matched-${recipe.recipeName}-${ingredient}`}
-                                      className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 border border-emerald-100"
+                                      className="inline-flex items-center rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
                                     >
                                       {ingredient}
                                     </span>
@@ -671,58 +616,51 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         )}
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-brand-blue/5 border border-brand-blue/15 px-3 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-blue/15 bg-brand-blue/5 px-3 py-2">
                         <p className="text-xs text-brand-blue/70">{t('recipeModalRecipeNutritionHint')}</p>
                         <button
                           type="button"
-                          onClick={() => onViewRecipeNutrition(recipe)}
-                          className="inline-flex items-center gap-2 rounded-xl bg-brand-blue text-white px-3 py-1.5 text-xs font-semibold shadow-sm hover:bg-blue-600 transition"
+                          onClick={() => onViewRecipeNutrition(recipeForDisplay)}
+                          className="inline-flex items-center gap-2 rounded-xl bg-brand-blue px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-600"
                         >
                           <PulseIcon /> {t('recipeModalRecipeNutritionButton')}
                         </button>
                       </div>
 
-                      <div className="space-y-3">
-                        <div className="space-y-1">
-                          <h4 className="text-sm font-semibold text-gray-700">{videoSectionHeading}</h4>
-                          <p className="text-xs text-gray-500">{videoSectionSubtitle}</p>
-                        </div>
-                        {recipe.videos.length > 0 ? (
-                          <div className="grid gap-4 md:grid-cols-2">
-                            {recipe.videos.map(video => (
-                              <button
-                                key={video.id}
-                                type="button"
-                                onClick={() => {
-                                  handleSelectVideo(recipe, video);
-                                }}
-                                className={`group block w-full text-left rounded-xl overflow-hidden bg-gray-100 shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-blue/40 border ${
-                                  recipeSelectedVideo?.id === video.id
-                                    ? 'border-brand-blue/40 ring-2 ring-brand-blue shadow-lg'
-                                    : 'border-transparent hover:shadow-lg'
-                                }`}
-                              >
-                                <div className="relative aspect-video overflow-hidden">
-                                  <img
-                                    src={video.thumbnailUrl}
-                                    alt={video.title}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  />
-                                  <span className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-full">YouTube</span>
-                                </div>
-                                <div className="p-4 space-y-1 bg-gray-100">
-                                  <p className="text-sm font-semibold text-gray-800">{video.title}</p>
-                                  <p className="text-xs text-gray-500">{video.channelTitle}</p>
-                                </div>
-                              </button>
-                            ))}
+                      {shouldRenderInstructions && (
+                        <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
+                              <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                            </div>
                           </div>
-                        ) : (
-                          <p className="text-sm text-gray-400">
-                            {videoAvailabilityNotice ?? t('recipeModalNoVideos')}
+                          <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            {instructionsToDisplay.map((instruction, instructionIndex) => {
+                              const { summary, details } = extractStepSummary(instruction);
+                              return (
+                                <div
+                                  key={`${recipe.recipeName}-instruction-${instructionIndex}`}
+                                  className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
+                                      {instructionIndex + 1}
+                                    </span>
+                                    <div className="space-y-1">
+                                      <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                      {details && <p className="text-xs leading-relaxed text-gray-600">{details}</p>}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
+                            {t('recipeModalStepByStepHint')}
                           </p>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </article>
                 );
