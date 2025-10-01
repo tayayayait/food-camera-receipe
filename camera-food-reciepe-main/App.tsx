@@ -8,6 +8,7 @@ import type {
   RecipeMemory,
   NutritionSummary,
   NutritionContext,
+  RecipeVideo,
 } from './types';
 import { Category, ItemStatus } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,6 +24,7 @@ import { getRecipeSuggestions } from './services/geminiService';
 import { generateDesignPreview, generateJournalPreviewImage } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
+import { analyzeVideoRecipe } from './services/videoRecipeService';
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
@@ -150,6 +152,10 @@ const App: React.FC = () => {
   const [journalPreviewStatuses, setJournalPreviewStatuses] = useState<
     Record<string, 'idle' | 'loading' | 'error'>
   >({});
+  const [videoRecipeAnalysis, setVideoRecipeAnalysis] = useState<{
+    recipeName: string;
+    videoId: string;
+  } | null>(null);
 
   useEffect(() => {
     setRecipeMemories(current => {
@@ -347,6 +353,8 @@ const App: React.FC = () => {
     if (existing) {
       const needsEnrichment =
         !existing.ingredients?.length || !existing.instructions?.length || !existing.videos?.length;
+      const shouldUpdateSourceVideo =
+        Boolean(recipe.sourceVideoId) && recipe.sourceVideoId !== existing.sourceVideoId;
       if (needsEnrichment) {
         setRecipeMemories(current =>
           current.map(memory =>
@@ -356,8 +364,15 @@ const App: React.FC = () => {
                   ingredients: recipe.ingredientsNeeded,
                   instructions: recipe.instructions,
                   videos: recipe.videos,
+                  sourceVideoId: recipe.sourceVideoId ?? memory.sourceVideoId,
                 }
               : memory
+          )
+        );
+      } else if (shouldUpdateSourceVideo) {
+        setRecipeMemories(current =>
+          current.map(memory =>
+            memory.id === existing.id ? { ...memory, sourceVideoId: recipe.sourceVideoId } : memory
           )
         );
       }
@@ -381,6 +396,7 @@ const App: React.FC = () => {
       ingredients: recipe.ingredientsNeeded,
       instructions: recipe.instructions,
       videos: recipe.videos,
+      sourceVideoId: recipe.sourceVideoId,
       journalPreviewImage: null,
     };
 
@@ -388,6 +404,80 @@ const App: React.FC = () => {
     setHighlightedMemoryId(newMemory.id);
     requestJournalPreviewForMemory(newMemory, recipe);
     return { id: newMemory.id, isNew: true } as const;
+  };
+
+  const handleSelectVideoForRecipe = async (
+    targetRecipe: RecipeRecommendation,
+    video: RecipeVideo
+  ) => {
+    if (videoRecipeAnalysis) {
+      if (
+        videoRecipeAnalysis.recipeName === targetRecipe.recipeName &&
+        videoRecipeAnalysis.videoId === video.id
+      ) {
+        return;
+      }
+      return;
+    }
+
+    const fallbackSource = targetRecipe.ingredientsNeeded.length
+      ? targetRecipe.ingredientsNeeded
+      : selectedIngredients;
+    const sanitizedFallback = sanitizeIngredients(fallbackSource);
+
+    setVideoRecipeAnalysis({ recipeName: targetRecipe.recipeName, videoId: video.id });
+    setError(null);
+
+    try {
+      const analyzedRecipe = await analyzeVideoRecipe(video, sanitizedFallback);
+      setRecipes(current =>
+        current.map(recipe => {
+          if (recipe.recipeName !== targetRecipe.recipeName) {
+            return recipe;
+          }
+
+          const nextIngredients = analyzedRecipe.ingredientsNeeded?.length
+            ? sanitizeIngredients(analyzedRecipe.ingredientsNeeded)
+            : recipe.ingredientsNeeded;
+
+          const availableSet = new Set(
+            [...targetRecipe.matchedIngredients, ...selectedIngredients].map(normalizeIngredientName)
+          );
+
+          const nextMatched = nextIngredients.filter(ingredient =>
+            availableSet.has(normalizeIngredientName(ingredient))
+          );
+          const nextMissing = nextIngredients.filter(
+            ingredient => !availableSet.has(normalizeIngredientName(ingredient))
+          );
+
+          const nextInstructions = analyzedRecipe.instructions?.length
+            ? analyzedRecipe.instructions.map(step => step.trim()).filter(Boolean)
+            : recipe.instructions;
+
+          return {
+            ...recipe,
+            recipeName: analyzedRecipe.recipeName || recipe.recipeName,
+            description: analyzedRecipe.description || recipe.description,
+            ingredientsNeeded: nextIngredients,
+            instructions: nextInstructions,
+            matchedIngredients: nextMatched,
+            missingIngredients: nextMissing,
+            isFullyMatched: nextMissing.length === 0,
+            sourceVideoId: analyzedRecipe.sourceVideoId ?? video.id,
+          };
+        })
+      );
+    } catch (err) {
+      if (err instanceof Error) {
+        const messageKey = err.message || 'errorUnknown';
+        setError(t(messageKey as any));
+      } else {
+        setError(t('errorUnknown'));
+      }
+    } finally {
+      setVideoRecipeAnalysis(null);
+    }
   };
 
   const handleUpdateRecipeMemory = (id: string, updates: Partial<RecipeMemory>) => {
@@ -1039,6 +1129,8 @@ const App: React.FC = () => {
           nutritionContext={nutritionContext}
           onViewRecipeNutrition={handleViewRecipeNutrition}
           onApplyDetectedIngredients={handleApplyDetectedIngredients}
+          onSelectVideoForRecipe={handleSelectVideoForRecipe}
+          videoRecipeAnalysis={videoRecipeAnalysis}
         />
       )}
 

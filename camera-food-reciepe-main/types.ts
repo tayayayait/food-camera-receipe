@@ -27,6 +27,7 @@ export interface Recipe {
     description: string;
     ingredientsNeeded: string[];
     instructions: string[];
+    sourceVideoId?: string;
 }
 
 export interface RecipeVideo {
@@ -93,5 +94,6 @@ export interface RecipeMemory {
     ingredients?: string[];
     instructions?: string[];
     videos?: RecipeVideo[];
+    sourceVideoId?: string;
     journalPreviewImage?: string | null;
 }
