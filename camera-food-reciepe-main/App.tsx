@@ -785,10 +785,30 @@ const App: React.FC = () => {
     setIsVideoRecipeLoading(false);
   };
 
+  const videoRecipeState = useMemo(
+    () => ({
+      recipe: videoRecipe,
+      selectedVideo: videoRecipeSelection?.video ?? null,
+      targetRecipeName: videoRecipeSelection?.recipeName ?? videoRecipe?.recipeName ?? null,
+      isLoading: isVideoRecipeLoading,
+      error: videoRecipeError,
+    }),
+    [videoRecipe, videoRecipeSelection, isVideoRecipeLoading, videoRecipeError]
+  );
+
+  const handleStart = () => {
+    if (items.length === 0) {
+      openCameraModal();
+      return;
+    }
+
+    setActiveView('pantry');
+  };
+
   if (activeView === 'intro') {
     return (
       <IntroScreen
-        onStart={() => setActiveView('pantry')}
+        onStart={handleStart}
         onScan={openCameraModal}
         moodboardImage={moodboardImage}
         isMoodboardLoading={isMoodboardLoading}
@@ -1096,17 +1116,6 @@ const App: React.FC = () => {
       setIsVideoRecipeLoading(false);
     }
   };
-
-  const videoRecipeState = useMemo(
-    () => ({
-      recipe: videoRecipe,
-      selectedVideo: videoRecipeSelection?.video ?? null,
-      targetRecipeName: videoRecipeSelection?.recipeName ?? videoRecipe?.recipeName ?? null,
-      isLoading: isVideoRecipeLoading,
-      error: videoRecipeError,
-    }),
-    [videoRecipe, videoRecipeSelection, isVideoRecipeLoading, videoRecipeError]
-  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/30 font-sans text-[#1C2B4B]">
