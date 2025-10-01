@@ -343,22 +343,30 @@ const App: React.FC = () => {
     );
 
     if (existing) {
+      const existingInstructions = existing.instructions ?? [];
+      const newInstructions = recipe.instructions ?? [];
+      const instructionsChanged =
+        newInstructions.length > 0 &&
+        (existingInstructions.length !== newInstructions.length ||
+          existingInstructions.some((step, index) => step !== newInstructions[index]));
       const needsEnrichment =
         !existing.ingredients?.length || !existing.instructions?.length || !existing.videos?.length;
-      if (needsEnrichment || existing.selectedVideoId !== normalizedSelectedVideoId) {
+      if (needsEnrichment || instructionsChanged || existing.selectedVideoId !== normalizedSelectedVideoId) {
         setRecipeMemories(current =>
           current.map(memory =>
             memory.id === existing.id
               ? {
                   ...memory,
-                  selectedVideoId: normalizedSelectedVideoId,
-                  ...(needsEnrichment
-                    ? {
-                        ingredients: recipe.ingredientsNeeded,
-                        instructions: recipe.instructions,
-                        videos: recipe.videos,
-                      }
+                  ...(existing.selectedVideoId !== normalizedSelectedVideoId
+                    ? { selectedVideoId: normalizedSelectedVideoId }
                     : {}),
+                  ...((needsEnrichment || instructionsChanged)
+                    ? { instructions: recipe.instructions }
+                    : {}),
+                  ...(needsEnrichment && !existing.ingredients?.length
+                    ? { ingredients: recipe.ingredientsNeeded }
+                    : {}),
+                  ...(needsEnrichment && !existing.videos?.length ? { videos: recipe.videos } : {}),
                 }
               : memory
           )
