@@ -95,3 +95,11 @@ export interface RecipeMemory {
     videos?: RecipeVideo[];
     journalPreviewImage?: string | null;
 }
+
+export interface VideoRecipeState {
+    video: RecipeVideo | null;
+    recipe: Recipe | null;
+    baseRecipeName: string | null;
+    isLoading: boolean;
+    error: string | null;
+}

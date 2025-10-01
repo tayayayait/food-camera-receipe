@@ -112,7 +112,16 @@ export const recipeModalStepByStepTitle = '이 순서대로 천천히 따라오�
 export const recipeModalStepByStepSubtitle = '큰 동작은 위에, 필요한 팁은 아래에 정리했어요.';
 export const recipeModalStepByStepHint = '카드를 순서대로 따라가면 부담 없이 완성돼요.';
 export const recipeModalWatchVideos = '영상으로 따라해보세요';
+export const recipeModalWatchVideosHint = '마음에 드는 영상을 눌러 레시피를 바로 불러와보세요.';
 export const recipeModalNoVideos = '적절한 영상을 찾지 못했어요. 다른 레시피를 선택해보세요.';
+export const recipeModalVideoSelected = '선택됨';
+export const recipeModalVideoProvidersLabel = '영상 채널';
+export const recipeModalVideoRecipeTitle = '영상 기반 레시피 정리';
+export const recipeModalVideoRecipeSubtitle = '{{channel}} 채널 영상 흐름을 토대로 정리했어요.';
+export const recipeModalVideoRecipeSubtitleIdle = '관심 있는 영상을 선택하면 영상 중심으로 레시피를 재구성해드려요.';
+export const recipeModalVideoRecipeLoading = '영상에 맞춰 레시피를 정리하고 있어요...';
+export const recipeModalVideoRecipeIngredients = '영상에서 언급된 핵심 재료';
+export const recipeModalVideoRecipeSteps = '영상 흐름 요약 단계';
 export const recipeModalNoResults = '추천 결과가 없어요. 재료를 조금만 더 추가해보세요!';
 export const recipeModalClose = '닫기';
 export const recipeModalAllIngredientsOnHand = '필요한 재료가 모두 냉장고에 준비되어 있어요.';
@@ -187,6 +196,9 @@ export const error_youtube_api_key = 'YouTube API 키가 설정되지 않았어�
 export const error_youtube_fetch = '레시피 영상을 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 export const error_vision_api_url = '이미지 인식 서비스가 아직 연결되지 않았어요. VISION_API_URL 환경 변수를 설정해주세요.';
 export const error_vision_fetch = '이미지에서 재료를 분석하는 데 실패했어요. 잠시 후 다시 시도해주세요.';
+export const errorGeminiVideoRecipe =
+  '영상 기반 레시피를 만들려면 Gemini API 키가 필요해요. 환경 변수를 확인한 뒤 다시 시도해주세요.';
+export const errorVideoRecipeUnavailable = '영상을 기반으로 한 레시피를 정리하지 못했어요. 다른 영상을 선택하거나 잠시 후 다시 시도해주세요.';
 
 export const journalSectionTitle = '나의 요리 기록';
 export const journalSectionDescription = '실제로 만들어본 요리를 저장하고 다음에 참고할 메모를 남겨보세요.';

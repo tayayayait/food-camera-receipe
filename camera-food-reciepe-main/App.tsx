@@ -8,6 +8,8 @@ import type {
   RecipeMemory,
   NutritionSummary,
   NutritionContext,
+  RecipeVideo,
+  VideoRecipeState,
 } from './types';
 import { Category, ItemStatus } from './types';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,6 +25,7 @@ import { getRecipeSuggestions } from './services/geminiService';
 import { generateDesignPreview, generateJournalPreviewImage } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
+import { generateVideoRecipe } from './services/videoRecipeService';
 import { SparklesIcon, CameraIcon, BookOpenIcon, PulseIcon } from './components/icons';
 import { useLanguage } from './context/LanguageContext';
 import { estimateNutritionSummary } from './services/nutritionService';
@@ -150,6 +153,11 @@ const App: React.FC = () => {
   const [journalPreviewStatuses, setJournalPreviewStatuses] = useState<
     Record<string, 'idle' | 'loading' | 'error'>
   >({});
+  const [selectedVideo, setSelectedVideo] = useState<RecipeVideo | null>(null);
+  const [videoRecipe, setVideoRecipe] = useState<Recipe | null>(null);
+  const [isVideoRecipeLoading, setIsVideoRecipeLoading] = useState(false);
+  const [videoRecipeError, setVideoRecipeError] = useState<string | null>(null);
+  const [videoRecipeBase, setVideoRecipeBase] = useState<RecipeRecommendation | null>(null);
 
   useEffect(() => {
     setRecipeMemories(current => {
@@ -510,9 +518,18 @@ const App: React.FC = () => {
     return enriched;
   };
 
+  const resetVideoRecipeState = () => {
+    setSelectedVideo(null);
+    setVideoRecipe(null);
+    setVideoRecipeError(null);
+    setIsVideoRecipeLoading(false);
+    setVideoRecipeBase(null);
+  };
+
   const fetchRecipesForIngredients = async (ingredients: string[], availableIngredientNames: string[]) => {
     setError(null);
     setIsLoadingRecipes(true);
+    resetVideoRecipeState();
 
     try {
       const suggestions = await getRecipeSuggestions(ingredients);
@@ -733,6 +750,46 @@ const App: React.FC = () => {
 
   const handleCloseRecipeModal = () => {
     setRecipeModalOpen(false);
+    resetVideoRecipeState();
+  };
+
+  const handleSelectVideoForRecipe = async (
+    video: RecipeVideo,
+    baseRecipe: RecipeRecommendation
+  ) => {
+    setSelectedVideo(video);
+    setVideoRecipe(null);
+    setVideoRecipeError(null);
+    setVideoRecipeBase(baseRecipe);
+    setIsVideoRecipeLoading(true);
+
+    try {
+      const generated = await generateVideoRecipe({
+        video,
+        baseRecipe,
+        pantryIngredients: selectedIngredients,
+      });
+      setVideoRecipe(generated);
+    } catch (err) {
+      const messageKey = err instanceof Error ? err.message : 'errorUnknown';
+      if (messageKey === 'error_gemini_api_key') {
+        setVideoRecipeError(t('errorGeminiVideoRecipe'));
+      } else if (messageKey === 'error_video_recipe_fetch') {
+        setVideoRecipeError(t('errorVideoRecipeUnavailable'));
+      } else {
+        setVideoRecipeError(t('errorUnknown'));
+      }
+    } finally {
+      setIsVideoRecipeLoading(false);
+    }
+  };
+
+  const videoRecipeState: VideoRecipeState = {
+    video: selectedVideo,
+    recipe: videoRecipe,
+    baseRecipeName: videoRecipeBase?.recipeName ?? null,
+    isLoading: isVideoRecipeLoading,
+    error: videoRecipeError,
   };
 
   if (activeView === 'intro') {
@@ -1039,6 +1096,8 @@ const App: React.FC = () => {
           nutritionContext={nutritionContext}
           onViewRecipeNutrition={handleViewRecipeNutrition}
           onApplyDetectedIngredients={handleApplyDetectedIngredients}
+          onVideoSelect={handleSelectVideoForRecipe}
+          videoRecipeState={videoRecipeState}
         />
       )}
 
