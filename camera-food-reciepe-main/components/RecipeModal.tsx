@@ -9,6 +9,7 @@ import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
 import { parseIngredientInput } from '../services/ingredientParser';
+import { generateInstructionsFromVideo } from '../services/geminiService';
 
 const extractStepSummary = (instruction: string) => {
   const cleaned = instruction.trim();
@@ -48,6 +49,13 @@ const extractStepSummary = (instruction: string) => {
   }
 
   return { summary: cleaned, details: '' };
+};
+
+type VideoInstructionsState = {
+  status: 'idle' | 'loading' | 'success' | 'error';
+  videoId: string | null;
+  steps: string[];
+  errorMessage?: string;
 };
 
 interface RecipeModalProps {
@@ -103,6 +111,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const [isApplyingIngredientEdits, setIsApplyingIngredientEdits] = useState(false);
   const [ingredientUpdateFeedback, setIngredientUpdateFeedback] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<RecipeVideo | null>(null);
+  const [videoInstructionStates, setVideoInstructionStates] = useState<Record<string, VideoInstructionsState>>({});
 
   useEffect(() => {
     if (!isOpen) {
@@ -148,11 +157,18 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     : null;
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
+    const instructionsState = videoInstructionStates[recipe.recipeName];
+    const enrichedInstructions =
+      instructionsState?.status === 'success' ? instructionsState.steps : recipe.instructions;
+    const recipeForSaving =
+      instructionsState?.status === 'success'
+        ? { ...recipe, instructions: enrichedInstructions }
+        : recipe;
     const selectedVideoIdForRecipe = selectedVideo &&
       recipe.videos.some(video => video.id === selectedVideo.id)
         ? selectedVideo.id
         : null;
-    const result = onSaveRecipeToJournal(recipe, selectedVideoIdForRecipe);
+    const result = onSaveRecipeToJournal(recipeForSaving, selectedVideoIdForRecipe);
     setJustSavedState({ name: recipe.recipeName, isNew: result.isNew });
   };
 
@@ -196,6 +212,73 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     }
   };
 
+  const handleSelectVideo = (recipe: RecipeRecommendation, video: RecipeVideo) => {
+    setSelectedVideo(video);
+    if (typeof window !== 'undefined') {
+      window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    const recipeKey = recipe.recipeName;
+    const existingState = videoInstructionStates[recipeKey];
+
+    if (existingState?.status === 'success' && existingState.videoId === video.id) {
+      return;
+    }
+
+    setVideoInstructionStates(prev => ({
+      ...prev,
+      [recipeKey]: {
+        status: 'loading',
+        videoId: video.id,
+        steps:
+          existingState?.status === 'success' && existingState.videoId === video.id
+            ? existingState.steps
+            : recipe.instructions,
+      },
+    }));
+
+    (async () => {
+      try {
+        const steps = await generateInstructionsFromVideo(video, ingredients, recipe);
+        setVideoInstructionStates(prev => {
+          const current = prev[recipeKey];
+          if (!current || current.videoId !== video.id) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [recipeKey]: {
+              status: 'success',
+              videoId: video.id,
+              steps,
+            },
+          };
+        });
+      } catch (error) {
+        console.error('Failed to generate instructions for selected video', error);
+        const fallbackMessage = t('error_gemini_fetch' as any);
+        const translatedMessage =
+          error instanceof Error && error.message ? t(error.message as any) : '';
+        const errorMessage = translatedMessage || fallbackMessage;
+        setVideoInstructionStates(prev => {
+          const current = prev[recipeKey];
+          if (!current || current.videoId !== video.id) {
+            return prev;
+          }
+          return {
+            ...prev,
+            [recipeKey]: {
+              status: 'error',
+              videoId: video.id,
+              steps: recipe.instructions,
+              errorMessage,
+            },
+          };
+        });
+      }
+    })();
+  };
+
   useEffect(() => {
     if (!selectedVideo) {
       return;
@@ -209,6 +292,20 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
       setSelectedVideo(null);
     }
   }, [recipes, selectedVideo]);
+
+  useEffect(() => {
+    setVideoInstructionStates(current => {
+      const allowedNames = new Set(recipes.map(recipe => recipe.recipeName));
+      const entries = Object.entries(current).filter(([name]) => allowedNames.has(name));
+      if (entries.length === Object.keys(current).length) {
+        return current;
+      }
+      return entries.reduce<Record<string, VideoInstructionsState>>((acc, [name, state]) => {
+        acc[name] = state;
+        return acc;
+      }, {});
+    });
+  }, [recipes]);
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
@@ -378,6 +475,15 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const isSaved = savedRecipeNamesSet.has(normalizedName);
                 const isJustSaved = justSavedState?.name === recipe.recipeName;
                 const providerVideos = recipe.videos;
+                const instructionsState = videoInstructionStates[recipe.recipeName];
+                const instructionsToDisplay =
+                  instructionsState?.status === 'success'
+                    ? instructionsState.steps
+                    : recipe.instructions;
+                const showLoadingInstructions = instructionsState?.status === 'loading';
+                const showErrorInstructions = instructionsState?.status === 'error';
+                const shouldRenderInstructions =
+                  instructionsToDisplay.length > 0 || showLoadingInstructions || showErrorInstructions;
                 const recipeSelectedVideo =
                   selectedVideo && recipe.videos.some(video => video.id === selectedVideo.id)
                     ? selectedVideo
@@ -433,7 +539,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             </div>
                           </div>
 
-                          {recipe.instructions.length > 0 && (
+                          {shouldRenderInstructions && (
                             <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
                               <div className="flex flex-wrap items-center justify-between gap-3">
                                 <div>
@@ -441,27 +547,41 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                   <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
                                 </div>
                               </div>
-                              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                {recipe.instructions.map((instruction, instructionIndex) => {
-                                  const { summary, details } = extractStepSummary(instruction);
-                                  return (
-                                    <div
-                                      key={`${recipe.recipeName}-instruction-${instructionIndex}`}
-                                      className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
-                                    >
-                                      <div className="flex items-start gap-3">
-                                        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
-                                          {instructionIndex + 1}
-                                        </span>
-                                        <div className="space-y-1">
-                                          <p className="text-sm font-semibold text-gray-800">{summary}</p>
-                                          {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                              {showLoadingInstructions ? (
+                                <div className="mt-4 rounded-2xl border border-dashed border-brand-orange/40 bg-white/60 p-4 text-center text-xs font-semibold text-brand-orange">
+                                  {t('recipeModalVideoInstructionsLoading')}
+                                </div>
+                              ) : (
+                                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                                  {instructionsToDisplay.map((instruction, instructionIndex) => {
+                                    const { summary, details } = extractStepSummary(instruction);
+                                    return (
+                                      <div
+                                        key={`${recipe.recipeName}-instruction-${instructionIndex}`}
+                                        className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
+                                      >
+                                        <div className="flex items-start gap-3">
+                                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
+                                            {instructionIndex + 1}
+                                          </span>
+                                          <div className="space-y-1">
+                                            <p className="text-sm font-semibold text-gray-800">{summary}</p>
+                                            {details && <p className="text-xs text-gray-600 leading-relaxed">{details}</p>}
+                                          </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                              {showErrorInstructions && (
+                                <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">
+                                  <p className="font-semibold">{t('recipeModalVideoInstructionsError')}</p>
+                                  {instructionsState?.errorMessage && (
+                                    <p className="mt-1 leading-relaxed">{instructionsState.errorMessage}</p>
+                                  )}
+                                </div>
+                              )}
                               <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
                                 {t('recipeModalStepByStepHint')}
                               </p>
@@ -574,10 +694,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                 key={video.id}
                                 type="button"
                                 onClick={() => {
-                                  setSelectedVideo(video);
-                                  if (typeof window !== 'undefined') {
-                                    window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
-                                  }
+                                  handleSelectVideo(recipe, video);
                                 }}
                                 className={`group block w-full text-left rounded-xl overflow-hidden bg-gray-100 shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-blue/40 border ${
                                   recipeSelectedVideo?.id === video.id
