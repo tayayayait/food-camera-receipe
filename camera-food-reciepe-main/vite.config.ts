@@ -13,6 +13,12 @@ export default defineConfig(({ mode }) => {
       'process.env.VITE_YOUTUBE_API_KEY': JSON.stringify(env.YOUTUBE_API_KEY ?? env.VITE_YOUTUBE_API_KEY),
       'process.env.VISION_API_URL': JSON.stringify(env.VISION_API_URL),
       'process.env.VISION_API_KEY': JSON.stringify(env.VISION_API_KEY),
+      'process.env.VIDEO_TRANSCRIPT_SERVICE_URL': JSON.stringify(
+        env.VIDEO_TRANSCRIPT_SERVICE_URL ?? env.VITE_VIDEO_TRANSCRIPT_SERVICE_URL,
+      ),
+      'process.env.VITE_VIDEO_TRANSCRIPT_SERVICE_URL': JSON.stringify(
+        env.VIDEO_TRANSCRIPT_SERVICE_URL ?? env.VITE_VIDEO_TRANSCRIPT_SERVICE_URL,
+      ),
     },
     resolve: {
       alias: {
