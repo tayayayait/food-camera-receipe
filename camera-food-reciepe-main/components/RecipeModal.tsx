@@ -385,7 +385,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     : null;
                 const providerVideos =
                   activeVideoRecipe?.videos?.length ? activeVideoRecipe.videos : recipe.videos;
-                const hasSelectedVideo = Boolean(videoRecipeState.selectedVideo);
+                const hasSelectedVideo = Boolean(selectedVideo);
                 const videoAlignedInstructions = activeVideoRecipe?.instructions ?? [];
                 const instructionsToDisplay =
                   hasSelectedVideo && videoAlignedInstructions.length > 0
@@ -409,7 +409,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const recipeForDisplay = activeVideoRecipe ?? recipe;
                 const shouldRenderInstructions = instructionsToDisplay.length > 0;
                 const shouldShowSelectVideoPrompt =
-                  providerVideos.length > 0 && !videoRecipeState.selectedVideo;
+                  providerVideos.length > 0 && !selectedVideo;
                 const showVideoStatusCard = isVideoTargeted || shouldShowSelectVideoPrompt;
 
                 return (
