@@ -156,6 +156,7 @@ const App: React.FC = () => {
   const [recipes, setRecipes] = useState<RecipeRecommendation[]>([]);
   const [isLoadingRecipes, setIsLoadingRecipes] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const [isCameraOpen, setCameraOpen] = useState(false);
   const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
   const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
@@ -563,6 +564,7 @@ const App: React.FC = () => {
 
   const fetchRecipesForIngredients = async (ingredients: string[], availableIngredientNames: string[]) => {
     setError(null);
+    setErrorKey(null);
     setIsLoadingRecipes(true);
     setVideoAvailabilityNotice(null);
     setVideoRecipe(null);
@@ -574,6 +576,7 @@ const App: React.FC = () => {
       const suggestions = await getRecipeSuggestions(ingredients);
       if (!suggestions.length) {
         setRecipes([]);
+        setErrorKey('errorNoRecipes');
         setError(t('errorNoRecipes'));
         return;
       }
@@ -599,6 +602,7 @@ const App: React.FC = () => {
       if (hasVideos && youtubeReady.length === 0) {
         setRecipes([]);
         setVideoAvailabilityNotice(null);
+        setErrorKey('errorNoVideoRecipes');
         setError(t('errorNoVideoRecipes'));
         return;
       }
@@ -639,6 +643,7 @@ const App: React.FC = () => {
       const messageKey = err instanceof Error ? err.message : 'errorUnknown';
       setRecipes([]);
       setError(translateError(messageKey));
+      setErrorKey(messageKey);
       setVideoAvailabilityNotice(null);
     } finally {
       setIsLoadingRecipes(false);
@@ -657,6 +662,7 @@ const App: React.FC = () => {
       setSelectedIngredients([]);
       setRecipes([]);
       setVideoAvailabilityNotice(null);
+      setErrorKey('errorScanFirst');
       setError(t('errorScanFirst'));
       setRecipeModalOpen(true);
       return;
@@ -671,6 +677,7 @@ const App: React.FC = () => {
     if (sanitizedTopIngredients.length === 0) {
       setSelectedIngredients([]);
       setRecipes([]);
+      setErrorKey('errorScanFirst');
       setError(t('errorScanFirst'));
       setRecipeModalOpen(true);
       return;
@@ -686,6 +693,7 @@ const App: React.FC = () => {
 
     try {
       setError(null);
+      setErrorKey(null);
       setMoodboardError(null);
       const detectedIngredients = await analyzeIngredientsFromImage(photo);
       const sanitizedDetectedIngredients = sanitizeIngredients(detectedIngredients ?? []);
@@ -723,6 +731,7 @@ const App: React.FC = () => {
       setSelectedIngredients([]);
       setRecipes([]);
       setError(translateError(messageKey));
+      setErrorKey(messageKey);
       setVideoAvailabilityNotice(null);
       setRecipeModalOpen(true);
       setNutritionSummary(null);
@@ -1092,6 +1101,8 @@ const App: React.FC = () => {
     }
   };
 
+  const shouldHideRecipeDetails = errorKey === 'errorScanFirst';
+
   const toolbarActions = [
     {
       key: 'scan',
@@ -1276,6 +1287,7 @@ const App: React.FC = () => {
               ? videoGuideState.recipe.recipeName
               : null
           }
+          shouldHideRecipeDetails={shouldHideRecipeDetails}
         />
       )}
 
