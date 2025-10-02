@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type {
   PantryItem,
@@ -163,6 +163,7 @@ const App: React.FC = () => {
     recipeName: string;
     video: RecipeVideo;
   } | null>(null);
+  const latestVideoRequestRef = useRef<string | null>(null);
 
   const translateError = (messageKey: string) => {
     const translated = t(messageKey as any);
@@ -1087,6 +1088,9 @@ const App: React.FC = () => {
   ];
 
   const handleSelectVideoForRecipe = async (recipe: RecipeRecommendation, video: RecipeVideo) => {
+    const requestId = `${recipe.recipeName}-${video.id}-${Date.now()}`;
+    latestVideoRequestRef.current = requestId;
+
     setVideoRecipeSelection({ recipeName: recipe.recipeName, video });
     setIsVideoRecipeLoading(true);
     setVideoRecipe(null);
@@ -1102,6 +1106,9 @@ const App: React.FC = () => {
 
     try {
       const steps = await generateInstructionsFromVideo(video, selectedIngredients, recipe);
+      if (latestVideoRequestRef.current !== requestId) {
+        return;
+      }
       const enrichedRecipe: RecipeRecommendation = {
         ...recipe,
         instructions: steps.length > 0 ? steps : recipe.instructions,
@@ -1110,10 +1117,16 @@ const App: React.FC = () => {
       };
       setVideoRecipe(enrichedRecipe);
     } catch (error) {
+      if (latestVideoRequestRef.current !== requestId) {
+        return;
+      }
       const messageKey = error instanceof Error ? error.message : 'errorUnknown';
       setVideoRecipeError(translateError(messageKey));
     } finally {
-      setIsVideoRecipeLoading(false);
+      if (latestVideoRequestRef.current === requestId) {
+        setIsVideoRecipeLoading(false);
+        latestVideoRequestRef.current = null;
+      }
     }
   };
 
