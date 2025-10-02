@@ -19,6 +19,8 @@ import {
   recipeModalStepByStepCautionTitle,
   recipeModalStepByStepCautionSubtitle,
   recipeModalStepByStepCautionHint,
+  recipeModalGuidanceTitle,
+  recipeModalGuidanceCardScanTitle,
 } from '../../locales/ko';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -60,6 +62,7 @@ const baseProps: RecipeModalProps = {
     transcript: { status: 'idle', messageKey: null },
   },
   activeVideoGuideRecipeName: null,
+  shouldHideRecipeDetails: false,
 };
 
 const renderModal = (override: Partial<RecipeModalProps>) => {
@@ -317,6 +320,22 @@ describe('RecipeModal', () => {
       expect(textContent).toContain(recipeModalStepByStepCautionSubtitle);
       expect(textContent).toContain(recipeModalStepByStepCautionHint);
       expect(textContent).not.toContain(recipeModalStepByStepTitle);
+    } finally {
+      unmount();
+    }
+  });
+
+  it('renders guidance cards when recipe details are hidden', () => {
+    const { container, unmount } = renderModal({
+      shouldHideRecipeDetails: true,
+      recipes: [baseRecipe],
+    });
+
+    try {
+      const textContent = container.textContent ?? '';
+      expect(textContent).toContain(recipeModalGuidanceTitle);
+      expect(textContent).toContain(recipeModalGuidanceCardScanTitle);
+      expect(textContent).not.toContain(baseRecipe.recipeName);
     } finally {
       unmount();
     }

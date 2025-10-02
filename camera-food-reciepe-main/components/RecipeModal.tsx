@@ -6,7 +6,7 @@ import type {
   RecipeVideo,
 } from '../types';
 import type { TranscriptPromptStatus } from '../services/geminiService';
-import { UtensilsIcon, PulseIcon } from './icons';
+import { UtensilsIcon, PulseIcon, CameraIcon, SparklesIcon, BookOpenIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
 import { parseIngredientInput } from '../services/ingredientParser';
@@ -85,6 +85,7 @@ interface RecipeModalProps {
   onVideoSelect: (recipe: RecipeRecommendation, video: RecipeVideo) => void;
   videoRecipeState: VideoRecipeState;
   activeVideoGuideRecipeName?: string | null;
+  shouldHideRecipeDetails?: boolean;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -113,6 +114,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   onVideoSelect,
   videoRecipeState,
   activeVideoGuideRecipeName = null,
+  shouldHideRecipeDetails = false,
 }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
@@ -173,6 +175,32 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
         ? t('nutritionContextRecipe', { name: nutritionContext.label })
         : t('nutritionContextMemory', { name: nutritionContext.label })
     : null;
+
+  const guidanceCards = useMemo(
+    () => [
+      {
+        key: 'scan',
+        icon: <CameraIcon />,
+        title: t('recipeModalGuidanceCardScanTitle'),
+        description: t('recipeModalGuidanceCardScanDescription'),
+      },
+      {
+        key: 'ideas',
+        icon: <SparklesIcon />,
+        title: t('recipeModalGuidanceCardIdeasTitle'),
+        description: t('recipeModalGuidanceCardIdeasDescription'),
+      },
+      {
+        key: 'journal',
+        icon: <BookOpenIcon />,
+        title: t('recipeModalGuidanceCardJournalTitle'),
+        description: t('recipeModalGuidanceCardJournalDescription'),
+      },
+    ],
+    [t]
+  );
+
+  const shouldShowGuidance = shouldHideRecipeDetails && !isLoading;
 
   const handleSaveToJournal = (recipe: RecipeRecommendation) => {
     const isVideoEnhanced = videoRecipeState.recipe?.recipeName === recipe.recipeName;
@@ -384,7 +412,36 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
             </div>
           )}
 
-          {!isLoading && !error && recipes.length > 0 && (
+          {shouldShowGuidance && (
+            <section className="space-y-4">
+              <div className="rounded-2xl border border-brand-blue/20 bg-white/90 p-5 shadow-sm">
+                <h3 className="text-lg font-semibold text-brand-blue">
+                  {t('recipeModalGuidanceTitle')}
+                </h3>
+                <p className="mt-1 text-sm text-brand-blue/70">
+                  {t('recipeModalGuidanceSubtitle')}
+                </p>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3">
+                {guidanceCards.map(card => (
+                  <div
+                    key={card.key}
+                    className="flex flex-col gap-3 rounded-2xl border border-brand-blue/15 bg-white/80 p-5 shadow-sm"
+                  >
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-blue/10 text-brand-blue">
+                      {card.icon}
+                    </span>
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-gray-800">{card.title}</p>
+                      <p className="text-xs leading-relaxed text-gray-600">{card.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {!isLoading && !error && recipes.length > 0 && !shouldHideRecipeDetails && (
             <div className="space-y-6">
               {recipes.map((recipe, index) => {
                 const normalizedName = recipe.recipeName.trim().toLowerCase();
@@ -735,7 +792,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
             </div>
           )}
 
-          {!isLoading && !error && recipes.length === 0 && (
+          {!isLoading && !error && recipes.length === 0 && !shouldHideRecipeDetails && (
             <p className="text-gray-500 text-center py-10">{t('recipeModalNoResults')}</p>
           )}
         </div>

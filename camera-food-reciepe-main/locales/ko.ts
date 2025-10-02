@@ -143,6 +143,18 @@ export const recipeModalProviderNoVideos = 'YouTube 영상 링크를 찾지 못�
 export const recipeModalProviderYoutubeLabel = 'YouTube';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
+export const recipeModalGuidanceTitle = '레시피 추천을 준비 중이에요';
+export const recipeModalGuidanceSubtitle =
+  '재료를 인식하거나 입력하면 레시피 카드가 나타납니다. 아래 안내를 참고해 준비해보세요.';
+export const recipeModalGuidanceCardScanTitle = '재료 스캔하기';
+export const recipeModalGuidanceCardScanDescription =
+  '카메라로 냉장고를 촬영하면 필요한 재료가 자동으로 정리돼요.';
+export const recipeModalGuidanceCardIdeasTitle = '직접 재료 입력하기';
+export const recipeModalGuidanceCardIdeasDescription =
+  '떠오르는 재료를 입력해 맞춤 추천의 정확도를 높여보세요.';
+export const recipeModalGuidanceCardJournalTitle = '나만의 기록 만들기';
+export const recipeModalGuidanceCardJournalDescription =
+  '마음에 드는 조합을 찾으면 기록에 저장해 다음에도 빠르게 찾아보세요.';
 
 export const videoGuideWindowTitle = '{{recipe}} · {{title}}';
 export const videoGuideWindowSubtitle = '{{channel}} 채널 영상을 보며 단계별로 따라오세요.';
