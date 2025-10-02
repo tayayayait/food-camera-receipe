@@ -116,6 +116,11 @@ export const recipeModalStepByStepHint = '카드를 순서대로 따라가면 �
 export const recipeModalVideoInstructionsLoading = '선택한 영상에 맞춰 단계를 정리하고 있어요...';
 export const recipeModalVideoInstructionsError = '영상에 맞춘 단계를 불러오지 못했어요.';
 export const recipeModalVideoInstructionsSelectPrompt = '먼저 영상을 선택하면 단계가 나타나요.';
+export const recipeModalVideoTranscriptLoading = '영상 자막을 불러오는 중이에요...';
+export const recipeModalVideoTranscriptUsed = '영상 자막을 참고해 단계를 정리했어요.';
+export const recipeModalVideoTranscriptAuto = '자동 생성된 자막을 참고해 단계를 정리했어요.';
+export const recipeModalVideoTranscriptUnavailable = '이 영상에는 자막이 없어 영상 정보만 활용했어요.';
+export const recipeModalVideoTranscriptError = '자막을 불러오지 못해 영상 정보만으로 단계를 정리했어요.';
 export const recipeModalWatchVideosHeadingDefault = '영상으로 따라해보세요';
 export const recipeModalWatchVideosHeadingSelected = '선택한 영상: {{title}}';
 export const recipeModalWatchVideosSubtitleDefault =
@@ -198,6 +203,8 @@ export const error_youtube_api_key =
   'YouTube API 키가 설정되지 않았어요. YouTube 영상을 보려면 YOUTUBE_API_KEY 또는 VITE_YOUTUBE_API_KEY 환경 변수를 설정해주세요.';
 export const error_youtube_fetch = '레시피 영상을 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
 export const error_vision_api_url = '이미지 인식 서비스가 아직 연결되지 않았어요. VISION_API_URL 환경 변수를 설정해주세요.';
+export const error_transcript_invalid_video = '유효한 YouTube 영상 ID를 확인하지 못했어요.';
+export const error_transcript_fetch = '영상 자막을 불러오는 중 문제가 발생했어요.';
 export const error_vision_fetch = '이미지에서 재료를 분석하는 데 실패했어요. 잠시 후 다시 시도해주세요.';
 
 export const journalSectionTitle = '나의 요리 기록';

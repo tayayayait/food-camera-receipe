@@ -40,6 +40,9 @@ interface YouTubeVideoDetail {
     privacyStatus?: string;
     uploadStatus?: string;
   };
+  contentDetails?: {
+    caption?: string;
+  };
 }
 
 interface YouTubeVideosResponse {
@@ -156,7 +159,7 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
     }
 
     const verifyParams = new URLSearchParams({
-      part: 'snippet,status',
+      part: 'snippet,status,contentDetails',
       id: videoIds.join(','),
       key: YOUTUBE_API_KEY,
       maxResults: String(videoIds.length),
@@ -203,6 +206,17 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
 
         const score = scoreVideo(snippet.title, recipeName, sanitizedIngredients);
 
+        const transcriptStatus = (() => {
+          const caption = detail?.contentDetails?.caption;
+          if (caption === 'true') {
+            return 'available';
+          }
+          if (caption === 'false') {
+            return 'unavailable';
+          }
+          return 'unknown';
+        })();
+
         return {
           score,
           index,
@@ -212,6 +226,7 @@ export async function getRecipeVideos(recipeName: string, ingredients: string[],
             channelTitle: snippet.channelTitle ?? 'Unknown creator',
             thumbnailUrl: thumbnail,
             videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+            transcriptStatus,
           } as RecipeVideo,
         };
       })

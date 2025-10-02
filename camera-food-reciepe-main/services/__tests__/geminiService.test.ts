@@ -1,0 +1,109 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const fetchVideoTranscriptMock = vi.fn();
+const generateContentMock = vi.fn();
+
+vi.mock('@google/genai', () => ({
+  GoogleGenAI: vi.fn().mockImplementation(() => ({
+    models: {
+      generateContent: generateContentMock,
+    },
+  })),
+  Type: {
+    ARRAY: 'ARRAY',
+    OBJECT: 'OBJECT',
+    STRING: 'STRING',
+  },
+}));
+
+vi.mock('../videoTranscriptService', () => ({
+  fetchVideoTranscript: fetchVideoTranscriptMock,
+}));
+
+describe('generateInstructionsFromVideo', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    fetchVideoTranscriptMock.mockReset();
+    generateContentMock.mockReset();
+    process.env.GEMINI_API_KEY = 'test-key';
+  });
+
+  afterEach(() => {
+    delete process.env.GEMINI_API_KEY;
+  });
+
+  it('includes transcript chunks when available', async () => {
+    fetchVideoTranscriptMock.mockResolvedValue({
+      status: 'available',
+      videoId: 'abc123',
+      segments: [
+        { text: '첫 번째 단계 안내' },
+        { text: '두 번째 단계 안내' },
+      ],
+    });
+
+    generateContentMock.mockResolvedValue({ text: '["1. 준비", "2. 마무리"]' });
+
+    const { generateInstructionsFromVideo } = await import('../geminiService');
+
+    const result = await generateInstructionsFromVideo(
+      {
+        id: 'abc123',
+        title: '테스트 영상',
+        channelTitle: '채널',
+        thumbnailUrl: 'thumb.jpg',
+        videoUrl: 'https://www.youtube.com/watch?v=abc123',
+        transcriptStatus: 'available',
+      },
+      ['마늘'],
+      {
+        recipeName: '테스트 레시피',
+        description: '설명',
+        instructions: ['기존 단계'],
+        ingredientsNeeded: ['양파'],
+      }
+    );
+
+    expect(generateContentMock).toHaveBeenCalledTimes(1);
+    const request = generateContentMock.mock.calls[0]?.[0];
+    expect(Array.isArray(request.contents)).toBe(true);
+    expect(request.contents[0]?.parts?.length).toBeGreaterThan(1);
+    expect(result.steps).toEqual(['1. 준비', '2. 마무리']);
+    expect(result.transcript.status).toBe('used');
+  });
+
+  it('falls back to metadata-only prompt when transcripts are unavailable', async () => {
+    fetchVideoTranscriptMock.mockResolvedValue({
+      status: 'unavailable',
+      videoId: 'abc123',
+    });
+
+    generateContentMock.mockResolvedValue({ text: '["1. 준비"]' });
+
+    const { generateInstructionsFromVideo } = await import('../geminiService');
+
+    const result = await generateInstructionsFromVideo(
+      {
+        id: 'abc123',
+        title: '테스트 영상',
+        channelTitle: '채널',
+        thumbnailUrl: 'thumb.jpg',
+        videoUrl: 'https://www.youtube.com/watch?v=abc123',
+        transcriptStatus: 'unknown',
+      },
+      [],
+      {
+        recipeName: '테스트 레시피',
+        description: '설명',
+        instructions: [],
+        ingredientsNeeded: [],
+      }
+    );
+
+    expect(generateContentMock).toHaveBeenCalledTimes(1);
+    const request = generateContentMock.mock.calls[0]?.[0];
+    expect(typeof request.contents).toBe('string');
+    expect(result.transcript.status).toBe('missing');
+    expect(result.steps).toEqual(['1. 준비']);
+  });
+});
