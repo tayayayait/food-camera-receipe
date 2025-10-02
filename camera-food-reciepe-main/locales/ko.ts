@@ -115,6 +115,7 @@ export const recipeModalStepByStepSubtitle = '큰 동작은 위에, 필요한 �
 export const recipeModalStepByStepHint = '카드를 순서대로 따라가면 부담 없이 완성돼요.';
 export const recipeModalVideoInstructionsLoading = '선택한 영상에 맞춰 단계를 정리하고 있어요...';
 export const recipeModalVideoInstructionsError = '영상에 맞춘 단계를 불러오지 못했어요.';
+export const recipeModalVideoInstructionsSelectPrompt = '먼저 영상을 선택하면 단계가 나타나요.';
 export const recipeModalWatchVideosHeadingDefault = '영상으로 따라해보세요';
 export const recipeModalWatchVideosHeadingSelected = '선택한 영상: {{title}}';
 export const recipeModalWatchVideosSubtitleDefault =

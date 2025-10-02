@@ -14,6 +14,8 @@ import {
   error_youtube_api_key,
   recipeModalVideoInstructionsLoading,
   recipeModalVideoInstructionsError,
+  recipeModalVideoInstructionsSelectPrompt,
+  recipeModalStepByStepTitle,
 } from '../../locales/ko';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -59,16 +61,24 @@ const renderModal = (override: Partial<RecipeModalProps>) => {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
-  act(() => {
-    root.render(
-      <LanguageProvider>
-        <RecipeModal {...baseProps} {...override} />
-      </LanguageProvider>
-    );
-  });
+  let currentOverride: Partial<RecipeModalProps> = {};
+
+  const renderWithOverride = (nextOverride: Partial<RecipeModalProps>) => {
+    currentOverride = { ...currentOverride, ...nextOverride };
+    act(() => {
+      root.render(
+        <LanguageProvider>
+          <RecipeModal {...baseProps} {...currentOverride} />
+        </LanguageProvider>
+      );
+    });
+  };
+
+  renderWithOverride(override);
 
   return {
     container,
+    rerender: renderWithOverride,
     unmount: () => {
       act(() => {
         root.unmount();
@@ -247,6 +257,63 @@ describe('RecipeModal', () => {
 
     try {
       expect(container.textContent).toContain(recipeModalVideoInstructionsError);
+    } finally {
+      unmount();
+    }
+  });
+
+  it('hides the step-by-step section until a video is selected and instructions arrive', async () => {
+    const recipeWithVideo: RecipeRecommendation = {
+      ...baseRecipe,
+      videos: [
+        {
+          id: 'video-1',
+          title: 'Prompt Video',
+          channelTitle: 'Channel',
+          thumbnailUrl: 'thumb.jpg',
+          videoUrl: 'https://example.com/video',
+        },
+      ],
+    };
+
+    const onVideoSelect = vi.fn();
+    const { container, rerender, unmount } = renderModal({
+      recipes: [recipeWithVideo],
+      onVideoSelect,
+    });
+
+    try {
+      expect(container.textContent).toContain(recipeModalVideoInstructionsSelectPrompt);
+      expect(container.textContent).not.toContain(recipeModalStepByStepTitle);
+
+      const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes(recipeWithVideo.videos[0].title)
+      );
+      expect(videoButton).toBeDefined();
+
+      await act(async () => {
+        videoButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
+
+      rerender({
+        videoRecipeState: {
+          recipe: {
+            ...recipeWithVideo,
+            instructions: ['1. 준비하기', '2. 마무리하기'],
+          },
+          selectedVideo: recipeWithVideo.videos[0],
+          targetRecipeName: recipeWithVideo.recipeName,
+          isLoading: false,
+          error: null,
+        },
+      });
+
+      expect(container.textContent).not.toContain(recipeModalVideoInstructionsSelectPrompt);
+      expect(container.textContent).toContain('준비하기');
+      expect(container.textContent).toContain('마무리하기');
+      expect(container.textContent).toContain(recipeModalStepByStepTitle);
     } finally {
       unmount();
     }
