@@ -124,9 +124,9 @@ export const recipeModalVideoTranscriptError = '자막을 불러오지 못해 �
 export const recipeModalWatchVideosHeadingDefault = '영상으로 따라해보세요';
 export const recipeModalWatchVideosHeadingSelected = '선택한 영상: {{title}}';
 export const recipeModalWatchVideosSubtitleDefault =
-  '마음에 드는 YouTube 영상을 골라 새 탭에서 바로 시청해보세요.';
+  '마음에 드는 YouTube 영상을 고르면 가이드 창에서 단계별로 따라할 수 있어요.';
 export const recipeModalWatchVideosSubtitleSelected =
-  '{{channel}} 채널의 "{{title}}" 영상을 열었어요. 영상과 함께 요리를 이어가보세요.';
+  '{{channel}} 채널의 "{{title}}" 영상으로 가이드 창을 열었어요. 영상을 보며 단계를 따라가세요.';
 export const recipeModalNoVideos = '적절한 영상을 찾지 못했어요. 다른 레시피를 선택해보세요.';
 export const recipeModalNoResults = '추천 결과가 없어요. 재료를 조금만 더 추가해보세요!';
 export const recipeModalClose = '닫기';
@@ -140,6 +140,13 @@ export const recipeModalProviderNoVideos = 'YouTube 영상 링크를 찾지 못�
 export const recipeModalProviderYoutubeLabel = 'YouTube';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
+
+export const videoGuideWindowTitle = '{{recipe}} · {{title}}';
+export const videoGuideWindowSubtitle = '{{channel}} 채널 영상을 보며 단계별로 따라오세요.';
+export const videoGuideWindowOpenExternally = 'YouTube에서 영상 열기';
+export const videoGuideWindowClose = '가이드 닫기';
+export const videoGuideWindowLoading = '영상 가이드를 불러오는 중이에요...';
+export const videoGuideWindowError = '영상 가이드를 열 수 없었어요. 잠시 후 다시 시도해주세요.';
 
 export const cameraModalErrorUnsupported =
   '이 기기에서는 카메라를 사용할 수 없어요. 지원되는 스마트폰이나 태블릿에서 다시 시도해주세요.';
