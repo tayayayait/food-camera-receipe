@@ -54,6 +54,7 @@ const baseProps: RecipeModalProps = {
     targetRecipeName: null,
     isLoading: false,
     error: null,
+    transcript: { status: 'idle', messageKey: null },
   },
 };
 
@@ -133,6 +134,7 @@ describe('RecipeModal', () => {
           channelTitle: 'Channel',
           thumbnailUrl: 'thumb.jpg',
           videoUrl: 'https://example.com/video',
+          transcriptStatus: 'unknown',
         },
       ],
     };
@@ -167,6 +169,7 @@ describe('RecipeModal', () => {
           channelTitle: 'Channel',
           thumbnailUrl: 'thumb.jpg',
           videoUrl: 'https://example.com/video',
+          transcriptStatus: 'unknown',
         },
       ],
     };
@@ -179,6 +182,7 @@ describe('RecipeModal', () => {
         targetRecipeName: recipeWithVideo.recipeName,
         isLoading: true,
         error: null,
+        transcript: { status: 'idle', messageKey: null },
       },
     });
 
@@ -200,6 +204,7 @@ describe('RecipeModal', () => {
           channelTitle: 'Channel',
           thumbnailUrl: 'thumb.jpg',
           videoUrl: 'https://example.com/video',
+          transcriptStatus: 'unknown',
         },
       ],
     };
@@ -217,6 +222,7 @@ describe('RecipeModal', () => {
         targetRecipeName: recipeWithVideo.recipeName,
         isLoading: false,
         error: null,
+        transcript: { status: 'used', messageKey: null },
       },
     });
 
@@ -240,6 +246,7 @@ describe('RecipeModal', () => {
           channelTitle: 'Channel',
           thumbnailUrl: 'thumb.jpg',
           videoUrl: 'https://example.com/video',
+          transcriptStatus: 'unknown',
         },
       ],
     };
@@ -252,6 +259,7 @@ describe('RecipeModal', () => {
         targetRecipeName: recipeWithVideo.recipeName,
         isLoading: false,
         error: recipeModalVideoInstructionsError,
+        transcript: { status: 'error', messageKey: null },
       },
     });
 
@@ -272,6 +280,7 @@ describe('RecipeModal', () => {
           channelTitle: 'Channel',
           thumbnailUrl: 'thumb.jpg',
           videoUrl: 'https://example.com/video',
+          transcriptStatus: 'unknown',
         },
       ],
     };
@@ -307,6 +316,7 @@ describe('RecipeModal', () => {
           targetRecipeName: recipeWithVideo.recipeName,
           isLoading: false,
           error: null,
+          transcript: { status: 'used', messageKey: null },
         },
       });
 

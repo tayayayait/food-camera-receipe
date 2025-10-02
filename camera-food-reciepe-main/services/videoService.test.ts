@@ -76,6 +76,7 @@ describe('getRecipeVideos', () => {
               id: 'video1',
               snippet,
               status: { privacyStatus: 'public', uploadStatus: 'processed' },
+              contentDetails: { caption: 'true' },
             },
           ],
         })
@@ -87,6 +88,7 @@ describe('getRecipeVideos', () => {
     expect(videos).toHaveLength(1);
     const [video] = videos;
     expect((video as RecipeVideo).id).toBe('video1');
+    expect((video as RecipeVideo).transcriptStatus).toBe('available');
   });
 
   it('prioritizes videos with positive scores when available', async () => {
@@ -131,11 +133,13 @@ describe('getRecipeVideos', () => {
               id: 'positive',
               snippet: positiveSnippet,
               status: { privacyStatus: 'public', uploadStatus: 'processed' },
+              contentDetails: { caption: 'true' },
             },
             {
               id: 'neutral',
               snippet: zeroSnippet,
               status: { privacyStatus: 'public', uploadStatus: 'processed' },
+              contentDetails: { caption: 'false' },
             },
           ],
         })
@@ -145,6 +149,7 @@ describe('getRecipeVideos', () => {
 
     expect(videos).toHaveLength(1);
     expect(videos[0]?.id).toBe('positive');
+    expect(videos[0]?.transcriptStatus).toBe('available');
   });
 
   it('throws an explicit error when the API key is missing', async () => {
@@ -223,6 +228,7 @@ describe('getRecipeVideos', () => {
                 thumbnails: { high: { url: 'https://example.com/thumb.jpg' } },
               },
               status: { privacyStatus: 'public', uploadStatus: 'processed' },
+              contentDetails: { caption: 'true' },
             },
           ],
         })

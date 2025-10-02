@@ -5,6 +5,7 @@ import type {
   NutritionContext,
   RecipeVideo,
 } from '../types';
+import type { TranscriptPromptStatus } from '../services/geminiService';
 import { UtensilsIcon, PulseIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
@@ -50,12 +51,18 @@ const extractStepSummary = (instruction: string) => {
   return { summary: cleaned, details: '' };
 };
 
+type TranscriptUiState = {
+  status: 'idle' | 'loading' | TranscriptPromptStatus['status'];
+  messageKey: string | null;
+};
+
 type VideoRecipeState = {
   recipe: RecipeRecommendation | null;
   selectedVideo: RecipeVideo | null;
   targetRecipeName: string | null;
   isLoading: boolean;
   error: string | null;
+  transcript: TranscriptUiState;
 };
 
 interface RecipeModalProps {
@@ -114,6 +121,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const [ingredientsEditorError, setIngredientsEditorError] = useState<string | null>(null);
   const [isApplyingIngredientEdits, setIsApplyingIngredientEdits] = useState(false);
   const [ingredientUpdateFeedback, setIngredientUpdateFeedback] = useState<string | null>(null);
+
+  const transcriptState = videoRecipeState.transcript;
+  const transcriptMessage = transcriptState.messageKey
+    ? t(transcriptState.messageKey as any)
+    : null;
 
   useEffect(() => {
     if (!isOpen) {
@@ -558,6 +570,13 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         <section className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4">
                           {videoRecipeState.error ? (
                             <p className="text-sm font-semibold text-red-600">{videoRecipeState.error}</p>
+                          ) : transcriptState.status === 'loading' ? (
+                            <div className="flex items-center gap-2 text-brand-blue">
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
+                              <span className="text-sm font-semibold">
+                                {transcriptMessage ?? t('recipeModalVideoTranscriptLoading')}
+                              </span>
+                            </div>
                           ) : videoRecipeState.isLoading ? (
                             <div className="flex items-center gap-2 text-brand-blue">
                               <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
@@ -573,6 +592,19 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             <div className="space-y-1">
                               <p className="text-sm font-semibold text-brand-blue">{videoSectionSubtitle}</p>
                               <p className="text-xs text-brand-blue/70">{t('recipeModalStepByStepHint')}</p>
+                              {transcriptMessage && transcriptState.status !== 'idle' && (
+                                <p
+                                  className={`text-[11px] font-medium ${
+                                    transcriptState.status === 'error'
+                                      ? 'text-red-600'
+                                      : transcriptState.status === 'missing'
+                                        ? 'text-brand-blue'
+                                        : 'text-brand-blue/60'
+                                  }`}
+                                >
+                                  {transcriptMessage}
+                                </p>
+                              )}
                             </div>
                           )}
                         </section>
