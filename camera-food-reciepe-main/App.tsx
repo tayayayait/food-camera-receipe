@@ -20,6 +20,7 @@ import RecipeJournal from './components/RecipeJournal';
 import NutritionSummaryCard from './components/NutritionSummaryCard';
 import BottomToolbar from './components/BottomToolbar';
 import RecipeExperienceModal from './components/RecipeExperienceModal';
+import VideoGuideWindow from './components/VideoGuideWindow';
 import {
   getRecipeSuggestions,
   generateInstructionsFromVideo,
@@ -37,6 +38,18 @@ import { resolveManualPreviewImage } from './services/manualPreviewService';
 type ActiveView = 'intro' | 'pantry' | 'recipes' | 'nutrition' | 'journal';
 
 type YoutubeConfigError = Error & { recipes?: RecipeWithVideos[] };
+
+type VideoGuideState = {
+  isOpen: boolean;
+  recipe: RecipeRecommendation | null;
+  video: RecipeVideo | null;
+  instructions: string[];
+  missingIngredients: string[];
+  transcriptStatus: TranscriptPromptStatus['status'] | 'idle' | 'loading';
+  transcriptMessageKey: string | null;
+  isLoading: boolean;
+  error: string | null;
+};
 
 interface IntroScreenProps {
   onStart: () => void;
@@ -171,6 +184,17 @@ const App: React.FC = () => {
     status: 'idle' | 'loading' | TranscriptPromptStatus['status'];
     messageKey: string | null;
   }>({ status: 'idle', messageKey: null });
+  const [videoGuideState, setVideoGuideState] = useState<VideoGuideState>({
+    isOpen: false,
+    recipe: null,
+    video: null,
+    instructions: [],
+    missingIngredients: [],
+    transcriptStatus: 'idle',
+    transcriptMessageKey: null,
+    isLoading: false,
+    error: null,
+  });
   const latestVideoRequestRef = useRef<string | null>(null);
 
   const translateError = (messageKey: string) => {
@@ -1112,14 +1136,17 @@ const App: React.FC = () => {
     setVideoRecipe(null);
     setVideoRecipeError(null);
     setVideoTranscriptState({ status: 'loading', messageKey: 'recipeModalVideoTranscriptLoading' });
-
-    if (typeof window !== 'undefined') {
-      try {
-        window.open(video.videoUrl, '_blank', 'noopener,noreferrer');
-      } catch (error) {
-        console.error('Failed to open recipe video', error);
-      }
-    }
+    setVideoGuideState({
+      isOpen: true,
+      recipe,
+      video,
+      instructions: [],
+      missingIngredients: recipe.missingIngredients,
+      transcriptStatus: 'loading',
+      transcriptMessageKey: 'recipeModalVideoTranscriptLoading',
+      isLoading: true,
+      error: null,
+    });
 
     try {
       const result = await generateInstructionsFromVideo(video, selectedIngredients, recipe);
@@ -1135,6 +1162,22 @@ const App: React.FC = () => {
       };
       setVideoRecipe(enrichedRecipe);
       setVideoTranscriptState({ status: transcript.status, messageKey: transcript.messageKey });
+      setVideoGuideState({
+        isOpen: true,
+        recipe: enrichedRecipe,
+        video,
+        instructions:
+          steps.length > 0
+            ? steps
+            : enrichedRecipe.instructions && enrichedRecipe.instructions.length > 0
+              ? enrichedRecipe.instructions
+              : recipe.instructions ?? [],
+        missingIngredients: enrichedRecipe.missingIngredients ?? recipe.missingIngredients,
+        transcriptStatus: transcript.status,
+        transcriptMessageKey: transcript.messageKey,
+        isLoading: false,
+        error: null,
+      });
       setVideoRecipeSelection(current => {
         if (!current || current.video.id !== video.id) {
           return current;
@@ -1161,6 +1204,17 @@ const App: React.FC = () => {
       const messageKey = error instanceof Error ? error.message : 'errorUnknown';
       setVideoRecipeError(translateError(messageKey));
       setVideoTranscriptState({ status: 'error', messageKey: 'recipeModalVideoTranscriptError' });
+      setVideoGuideState({
+        isOpen: true,
+        recipe,
+        video,
+        instructions: [],
+        missingIngredients: recipe.missingIngredients,
+        transcriptStatus: 'error',
+        transcriptMessageKey: 'recipeModalVideoTranscriptError',
+        isLoading: false,
+        error: translateError(messageKey),
+      });
     } finally {
       if (latestVideoRequestRef.current === requestId) {
         setIsVideoRecipeLoading(false);
@@ -1170,6 +1224,20 @@ const App: React.FC = () => {
         );
       }
     }
+  };
+
+  const handleCloseVideoGuide = () => {
+    setVideoGuideState({
+      isOpen: false,
+      recipe: null,
+      video: null,
+      instructions: [],
+      missingIngredients: [],
+      transcriptStatus: 'idle',
+      transcriptMessageKey: null,
+      isLoading: false,
+      error: null,
+    });
   };
 
   return (
@@ -1203,6 +1271,11 @@ const App: React.FC = () => {
           videoAvailabilityNotice={videoAvailabilityNotice}
           onVideoSelect={handleSelectVideoForRecipe}
           videoRecipeState={videoRecipeState}
+          activeVideoGuideRecipeName={
+            videoGuideState.isOpen && videoGuideState.recipe
+              ? videoGuideState.recipe.recipeName
+              : null
+          }
         />
       )}
 
@@ -1221,6 +1294,20 @@ const App: React.FC = () => {
           onClose={handleCloseMemoryForCooking}
           onCook={() => handleMarkRecipeCooked(activeMemoryForCooking.id)}
           onViewNutrition={() => handleViewMemoryNutrition(activeMemoryForCooking)}
+        />
+      )}
+
+      {videoGuideState.isOpen && videoGuideState.recipe && videoGuideState.video && (
+        <VideoGuideWindow
+          recipe={videoGuideState.recipe}
+          video={videoGuideState.video}
+          instructions={videoGuideState.instructions}
+          missingIngredients={videoGuideState.missingIngredients}
+          transcriptStatus={videoGuideState.transcriptStatus}
+          transcriptMessageKey={videoGuideState.transcriptMessageKey}
+          isLoading={videoGuideState.isLoading}
+          error={videoGuideState.error}
+          onClose={handleCloseVideoGuide}
         />
       )}
     </div>

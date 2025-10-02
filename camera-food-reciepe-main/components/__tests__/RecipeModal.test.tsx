@@ -56,6 +56,7 @@ const baseProps: RecipeModalProps = {
     error: null,
     transcript: { status: 'idle', messageKey: null },
   },
+  activeVideoGuideRecipeName: null,
 };
 
 const renderModal = (override: Partial<RecipeModalProps>) => {
@@ -116,6 +117,7 @@ describe('RecipeModal', () => {
           videoAvailabilityNotice={error_youtube_api_key}
           onVideoSelect={() => undefined}
           videoRecipeState={baseProps.videoRecipeState}
+          activeVideoGuideRecipeName={null}
         />
       </LanguageProvider>
     );

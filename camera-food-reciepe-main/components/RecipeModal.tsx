@@ -84,6 +84,7 @@ interface RecipeModalProps {
   videoAvailabilityNotice?: string | null;
   onVideoSelect: (recipe: RecipeRecommendation, video: RecipeVideo) => void;
   videoRecipeState: VideoRecipeState;
+  activeVideoGuideRecipeName?: string | null;
 }
 
 const LoadingSkeleton: React.FC = () => (
@@ -111,6 +112,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   videoAvailabilityNotice,
   onVideoSelect,
   videoRecipeState,
+  activeVideoGuideRecipeName = null,
 }) => {
   const { t } = useLanguage();
   if (!isOpen) return null;
@@ -419,7 +421,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     })
                   : t('recipeModalWatchVideosSubtitleDefault');
                 const recipeForDisplay = activeVideoRecipe ?? recipe;
-                const shouldRenderInstructions = instructionsToDisplay.length > 0;
+                const isGuideActiveForRecipe = activeVideoGuideRecipeName === recipe.recipeName;
+                const shouldRenderInstructions = !isGuideActiveForRecipe && instructionsToDisplay.length > 0;
                 const shouldShowSelectVideoPrompt =
                   providerVideos.length > 0 && !selectedVideo;
                 const showVideoStatusCard = isVideoTargeted || shouldShowSelectVideoPrompt;
@@ -610,49 +613,51 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         </section>
                       )}
 
-                      <div className="bg-gray-50 rounded-xl p-4">
-                        <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
-                        {ingredientsNeededToDisplay.length === 0 ? (
-                          <p className="mt-2 text-xs italic text-gray-500">{t('recipeModalNoExtraIngredients')}</p>
-                        ) : recipe.isFullyMatched ? (
-                          <p className="mt-2 text-xs font-semibold text-emerald-600">{t('recipeModalAllIngredientsOnHand')}</p>
-                        ) : (
-                          <div className="mt-3 space-y-3">
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                                {t('recipeModalMissingIngredientsLabel')}
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {recipe.missingIngredients.map(ingredient => (
-                                  <span
-                                    key={`missing-${recipe.recipeName}-${ingredient}`}
-                                    className="inline-flex items-center rounded-full border border-amber-100 bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm"
-                                  >
-                                    {ingredient}
-                                  </span>
-                                ))}
-                              </div>
-                            </div>
-                            {recipe.matchedIngredients.length > 0 && (
+                      {!isGuideActiveForRecipe && (
+                        <div className="bg-gray-50 rounded-xl p-4">
+                          <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
+                          {ingredientsNeededToDisplay.length === 0 ? (
+                            <p className="mt-2 text-xs italic text-gray-500">{t('recipeModalNoExtraIngredients')}</p>
+                          ) : recipe.isFullyMatched ? (
+                            <p className="mt-2 text-xs font-semibold text-emerald-600">{t('recipeModalAllIngredientsOnHand')}</p>
+                          ) : (
+                            <div className="mt-3 space-y-3">
                               <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                  {t('recipeModalMatchedIngredientsLabel')}
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                                  {t('recipeModalMissingIngredientsLabel')}
                                 </p>
                                 <div className="mt-2 flex flex-wrap gap-2">
-                                  {recipe.matchedIngredients.map(ingredient => (
+                                  {recipe.missingIngredients.map(ingredient => (
                                     <span
-                                      key={`matched-${recipe.recipeName}-${ingredient}`}
-                                      className="inline-flex items-center rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
+                                      key={`missing-${recipe.recipeName}-${ingredient}`}
+                                      className="inline-flex items-center rounded-full border border-amber-100 bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm"
                                     >
                                       {ingredient}
                                     </span>
                                   ))}
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                              {recipe.matchedIngredients.length > 0 && (
+                                <div>
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                    {t('recipeModalMatchedIngredientsLabel')}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {recipe.matchedIngredients.map(ingredient => (
+                                      <span
+                                        key={`matched-${recipe.recipeName}-${ingredient}`}
+                                        className="inline-flex items-center rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
+                                      >
+                                        {ingredient}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-blue/15 bg-brand-blue/5 px-3 py-2">
                         <p className="text-xs text-brand-blue/70">{t('recipeModalRecipeNutritionHint')}</p>
