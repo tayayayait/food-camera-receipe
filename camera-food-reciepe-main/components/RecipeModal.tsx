@@ -385,10 +385,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     : null;
                 const providerVideos =
                   activeVideoRecipe?.videos?.length ? activeVideoRecipe.videos : recipe.videos;
+                const hasSelectedVideo = Boolean(videoRecipeState.selectedVideo);
+                const videoAlignedInstructions = activeVideoRecipe?.instructions ?? [];
                 const instructionsToDisplay =
-                  activeVideoRecipe?.instructions?.length
-                    ? activeVideoRecipe.instructions
-                    : recipe.instructions;
+                  hasSelectedVideo && videoAlignedInstructions.length > 0
+                    ? videoAlignedInstructions
+                    : [];
                 const ingredientsNeededToDisplay =
                   activeVideoRecipe?.ingredientsNeeded?.length
                     ? activeVideoRecipe.ingredientsNeeded
@@ -406,9 +408,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                   : t('recipeModalWatchVideosSubtitleDefault');
                 const recipeForDisplay = activeVideoRecipe ?? recipe;
                 const shouldRenderInstructions = instructionsToDisplay.length > 0;
-                const showVideoStatusCard =
-                  isVideoTargeted &&
-                  (videoRecipeState.isLoading || videoRecipeState.error || !!activeVideoRecipe);
+                const shouldShowSelectVideoPrompt =
+                  providerVideos.length > 0 && !videoRecipeState.selectedVideo;
+                const showVideoStatusCard = isVideoTargeted || shouldShowSelectVideoPrompt;
 
                 return (
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
@@ -554,15 +556,19 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
 
                       {showVideoStatusCard && (
                         <section className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4">
-                          {videoRecipeState.isLoading ? (
+                          {videoRecipeState.error ? (
+                            <p className="text-sm font-semibold text-red-600">{videoRecipeState.error}</p>
+                          ) : videoRecipeState.isLoading ? (
                             <div className="flex items-center gap-2 text-brand-blue">
                               <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
                               <span className="text-sm font-semibold">
                                 {t('recipeModalVideoInstructionsLoading')}
                               </span>
                             </div>
-                          ) : videoRecipeState.error ? (
-                            <p className="text-sm font-semibold text-red-600">{videoRecipeState.error}</p>
+                          ) : shouldShowSelectVideoPrompt ? (
+                            <p className="text-sm font-semibold text-brand-blue">
+                              {t('recipeModalVideoInstructionsSelectPrompt')}
+                            </p>
                           ) : (
                             <div className="space-y-1">
                               <p className="text-sm font-semibold text-brand-blue">{videoSectionSubtitle}</p>
