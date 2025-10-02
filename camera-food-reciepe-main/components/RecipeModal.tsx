@@ -128,6 +128,8 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const transcriptMessage = transcriptState.messageKey
     ? t(transcriptState.messageKey as any)
     : null;
+  const isTranscriptWarning =
+    transcriptState.status === 'missing' || transcriptState.status === 'error';
 
   useEffect(() => {
     if (!isOpen) {
@@ -674,8 +676,24 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-brand-orange">{t('recipeModalStepByStepTitle')}</p>
-                              <p className="text-xs text-brand-orange/70">{t('recipeModalStepByStepSubtitle')}</p>
+                              <p
+                                className={`text-sm font-semibold ${
+                                  isTranscriptWarning ? 'text-red-600' : 'text-brand-orange'
+                                }`}
+                              >
+                                {isTranscriptWarning
+                                  ? t('recipeModalStepByStepCautionTitle')
+                                  : t('recipeModalStepByStepTitle')}
+                              </p>
+                              <p
+                                className={`text-xs ${
+                                  isTranscriptWarning ? 'text-red-500' : 'text-brand-orange/70'
+                                }`}
+                              >
+                                {isTranscriptWarning
+                                  ? t('recipeModalStepByStepCautionSubtitle')
+                                  : t('recipeModalStepByStepSubtitle')}
+                              </p>
                             </div>
                           </div>
                           <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -699,8 +717,14 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                               );
                             })}
                           </div>
-                          <p className="mt-4 text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
-                            {t('recipeModalStepByStepHint')}
+                          <p
+                            className={`mt-4 text-right text-[11px] font-semibold uppercase tracking-wide ${
+                              isTranscriptWarning ? 'text-red-500' : 'text-brand-orange/80'
+                            }`}
+                          >
+                            {isTranscriptWarning
+                              ? t('recipeModalStepByStepCautionHint')
+                              : t('recipeModalStepByStepHint')}
                           </p>
                         </div>
                       )}

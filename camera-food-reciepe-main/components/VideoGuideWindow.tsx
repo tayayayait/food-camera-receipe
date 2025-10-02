@@ -54,6 +54,7 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
   const embedUrl = useMemo(() => resolveYoutubeEmbedUrl(video.videoUrl), [video.videoUrl]);
   const transcriptMessage = transcriptMessageKey ? t(transcriptMessageKey as any) : null;
   const ingredientsToShow = missingIngredients.length > 0 ? missingIngredients : recipe.missingIngredients;
+  const isTranscriptWarning = transcriptStatus === 'missing' || transcriptStatus === 'error';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
@@ -133,7 +134,16 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
                 )}
                 {instructions.length > 0 && (
                   <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-800">{t('recipeModalStepByStepTitle')}</h3>
+                    <h3 className="text-sm font-semibold text-gray-800">
+                      {isTranscriptWarning
+                        ? t('recipeModalStepByStepCautionTitle')
+                        : t('recipeModalStepByStepTitle')}
+                    </h3>
+                    {isTranscriptWarning && (
+                      <p className="text-xs text-red-500">
+                        {t('recipeModalStepByStepCautionSubtitle')}
+                      </p>
+                    )}
                     <div className="space-y-3">
                       {instructions.map((instruction, index) => (
                         <div
@@ -148,7 +158,9 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
                       ))}
                     </div>
                     <p className="text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
-                      {t('recipeModalStepByStepHint')}
+                      {isTranscriptWarning
+                        ? t('recipeModalStepByStepCautionHint')
+                        : t('recipeModalStepByStepHint')}
                     </p>
                   </div>
                 )}
