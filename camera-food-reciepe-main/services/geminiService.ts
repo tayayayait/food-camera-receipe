@@ -74,7 +74,6 @@ interface VideoRecipeContextInput {
     videoTitle?: string;
     channelTitle?: string;
     contextText: string;
-    fallbackIngredients: string[];
 }
 
 export async function getRecipeSuggestions(ingredients: string[]): Promise<Recipe[]> {
@@ -137,21 +136,12 @@ export async function getRecipeFromVideoContext({
     videoTitle,
     channelTitle,
     contextText,
-    fallbackIngredients,
 }: VideoRecipeContextInput): Promise<Recipe> {
     if (!GEMINI_API_KEY || !ai) {
         throw new Error('error_gemini_api_key');
     }
 
     const sanitizedContext = contextText.trim();
-    const fallbackList = fallbackIngredients.map(ingredient => ingredient.trim()).filter(Boolean);
-
-    const fallbackDirective =
-        fallbackList.length > 0
-            ? `If the transcript or description does not specify concrete ingredients, incorporate these pantry items when reasonable: ${fallbackList.join(
-                  ', '
-              )}.`
-            : 'If the transcript or description omits certain ingredients, make reasonable assumptions for a Korean home kitchen without inventing uncommon items.';
 
     const metadataLines = [
         videoTitle ? `Video Title: ${videoTitle}` : null,
@@ -164,7 +154,9 @@ export async function getRecipeFromVideoContext({
         .filter((line): line is string => Boolean(line))
         .join('\n\n');
 
-    const prompt = `You are a culinary assistant that transforms YouTube cooking video context into structured recipes. Use the provided context from the video to infer the dish name, a short enticing description, ingredients, and clear numbered instructions (at least four steps). ${fallbackDirective}
+    const prompt = `You are a culinary assistant that transforms YouTube cooking video context into structured recipes. Use only the provided context from the video to infer the dish name, a short enticing description, ingredients, and clear numbered instructions (at least four steps).
+
+Do not invent or assume details beyond the supplied context. If any field cannot be determined, set recipeName and description to "Not specified in video context" and return an array containing "Not specified in video context" for ingredientsNeeded or instructions when necessary.
 
 Context to analyse:
 ${metadataLines}

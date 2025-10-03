@@ -420,16 +420,11 @@ const App: React.FC = () => {
       return;
     }
 
-    const fallbackSource = targetRecipe.ingredientsNeeded.length
-      ? targetRecipe.ingredientsNeeded
-      : selectedIngredients;
-    const sanitizedFallback = sanitizeIngredients(fallbackSource);
-
     setVideoRecipeAnalysis({ recipeName: targetRecipe.recipeName, videoId: video.id });
     setError(null);
 
     try {
-      const analyzedRecipe = await analyzeVideoRecipe(video, sanitizedFallback);
+      const analyzedRecipe = await analyzeVideoRecipe(video);
       setRecipes(current =>
         current.map(recipe => {
           if (recipe.recipeName !== targetRecipe.recipeName) {
