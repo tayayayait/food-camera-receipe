@@ -37,7 +37,6 @@ interface YouTubeCaptionsResponse {
 
 const DESCRIPTION_LIMIT = 2000;
 const CAPTION_LIMIT = 6000;
-const FALLBACK_WORD_THRESHOLD = 120;
 
 const sanitizeMultiline = (text: string) =>
   text
@@ -192,10 +191,7 @@ const fetchCaptionText = async (videoId: string) => {
   return '';
 };
 
-export async function analyzeVideoRecipe(
-  video: RecipeVideo,
-  fallbackIngredients: string[]
-): Promise<Recipe> {
+export async function analyzeVideoRecipe(video: RecipeVideo): Promise<Recipe> {
   if (!YOUTUBE_API_KEY) {
     throw new Error('error_youtube_api_key');
   }
@@ -231,17 +227,11 @@ export async function analyzeVideoRecipe(
     }
 
     const contextText = contextSections.join('\n\n').trim();
-    const sanitizedFallback = uniqueSanitizedList(fallbackIngredients);
-
-    const wordCount = contextText ? contextText.split(/\s+/).length : 0;
-    const shouldIncludeFallback = wordCount < FALLBACK_WORD_THRESHOLD && sanitizedFallback.length > 0;
-
     const recipe = await getRecipeFromVideoContext({
       videoId: video.id,
       videoTitle: title,
       channelTitle: metadata.channelTitle ?? video.channelTitle,
       contextText,
-      fallbackIngredients: shouldIncludeFallback ? sanitizedFallback : [],
     });
 
     return {
