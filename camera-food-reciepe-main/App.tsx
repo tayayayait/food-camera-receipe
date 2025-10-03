@@ -430,6 +430,26 @@ const App: React.FC = () => {
 
     try {
       const analyzedRecipe = await analyzeVideoRecipe(video, sanitizedFallback);
+      const sanitizedInstructions =
+        analyzedRecipe.instructions?.map(step => step.trim()).filter(Boolean) ?? [];
+      const normalizedInstructionSet = new Set(
+        sanitizedInstructions.map(step => step.toLowerCase())
+      );
+      const placeholderPhrases = ['no instructions', 'instructions not available', 'n/a', 'tbd'];
+      const containsPlaceholder = sanitizedInstructions.some(step => {
+        const normalized = step.toLowerCase();
+        return placeholderPhrases.some(phrase => normalized.includes(phrase));
+      });
+      const hasSufficientDistinctSteps = normalizedInstructionSet.size > 1;
+      const singleStepIsDetailed =
+        sanitizedInstructions.length === 1 &&
+        sanitizedInstructions[0].split(/\s+/).filter(Boolean).length >= 8 &&
+        sanitizedInstructions[0].length >= 30;
+      const shouldUseAnalyzedInstructions =
+        sanitizedInstructions.length > 0 &&
+        !containsPlaceholder &&
+        (hasSufficientDistinctSteps || singleStepIsDetailed);
+
       setRecipes(current =>
         current.map(recipe => {
           if (recipe.recipeName !== targetRecipe.recipeName) {
@@ -451,8 +471,8 @@ const App: React.FC = () => {
             ingredient => !availableSet.has(normalizeIngredientName(ingredient))
           );
 
-          const nextInstructions = analyzedRecipe.instructions?.length
-            ? analyzedRecipe.instructions.map(step => step.trim()).filter(Boolean)
+          const nextInstructions = shouldUseAnalyzedInstructions
+            ? sanitizedInstructions
             : recipe.instructions;
 
           return {
@@ -468,6 +488,15 @@ const App: React.FC = () => {
           };
         })
       );
+
+      if (sanitizedInstructions.length > 0 && !shouldUseAnalyzedInstructions) {
+        console.warn('Discarded analyzed instructions due to low quality output.', {
+          recipe: targetRecipe.recipeName,
+          normalizedInstructionCount: normalizedInstructionSet.size,
+          sanitizedInstructions,
+        });
+        setError(t('warningDiscardedAnalyzedInstructions'));
+      }
     } catch (err) {
       if (err instanceof Error) {
         const messageKey = err.message || 'errorUnknown';

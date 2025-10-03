@@ -183,6 +183,9 @@ export const errorPhotoAnalysis = '사진을 분석할 수 없었어요. 다시 
 export const errorUnknown = '알 수 없는 오류가 발생했습니다.';
 export const errorNoVideoRecipes = 'YouTube 영상이 있는 레시피를 찾지 못했어요. 재료를 조금만 더 추가해보세요.';
 
+export const warningDiscardedAnalyzedInstructions =
+  '영상 분석으로 추출한 조리 순서가 명확하지 않아 기존 순서를 유지했어요.';
+
 export const error_gemini_api_key =
   'Gemini API 키가 설정되지 않았어요. GEMINI_API_KEY (또는 기존 API_KEY) 환경 변수를 확인해주세요.';
 export const error_gemini_fetch = '레시피를 불러오지 못했어요. 잠시 후 다시 시도해주세요.';
