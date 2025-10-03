@@ -124,6 +124,8 @@ export const recipeModalVideoTranscriptUsed = '영상 자막을 참고해 단계
 export const recipeModalVideoTranscriptAuto = '자동 생성된 자막을 참고해 단계를 정리했어요.';
 export const recipeModalVideoTranscriptUnavailable = '이 영상에는 자막이 없어 영상 정보만 활용했어요.';
 export const recipeModalVideoTranscriptError = '자막을 불러오지 못해 영상 정보만으로 단계를 정리했어요.';
+export const videoInstructionDiscardedWarning =
+  '생성된 영상 단계가 충분히 신뢰되지 않아 기존 단계를 유지했어요.';
 export const recipeModalWatchVideosHeadingDefault = '영상으로 따라해보세요';
 export const recipeModalWatchVideosHeadingSelected = '선택한 영상: {{title}}';
 export const recipeModalWatchVideosSubtitleDefault =

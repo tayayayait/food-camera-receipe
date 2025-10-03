@@ -1165,9 +1165,57 @@ const App: React.FC = () => {
       if (latestVideoRequestRef.current !== requestId) {
         return;
       }
+      const sanitizedInstructions = steps.map(step => step.trim()).filter(Boolean);
+      const normalizedInstructions = new Set(
+        sanitizedInstructions.map(step =>
+          step
+            .toLowerCase()
+            .replace(/^[0-9]+[\).\-\s]*/, '')
+            .replace(/\s+/g, ' ')
+            .trim(),
+        ),
+      );
+      const placeholderPhrases = [
+        'no instructions',
+        'instruction unavailable',
+        'placeholder',
+        'coming soon',
+        '준비중',
+        '업데이트 예정',
+        '내용 없음',
+      ];
+      const hasPlaceholderPhrase = sanitizedInstructions.some(step => {
+        const lowered = step.toLowerCase();
+        return placeholderPhrases.some(phrase => lowered.includes(phrase));
+      });
+      const hasMeaningfulInstructions =
+        sanitizedInstructions.length > 0 &&
+        !hasPlaceholderPhrase &&
+        (normalizedInstructions.size > 1 ||
+          sanitizedInstructions.some(step =>
+            step
+              .replace(/^[0-9]+[\).\-\s]*/, '')
+              .trim()
+              .length >= 30,
+          ));
+
+      if (!hasMeaningfulInstructions && sanitizedInstructions.length > 0) {
+        console.warn('Discarded low quality analyzed video instructions', {
+          recipeName: recipe.recipeName,
+          videoId: video.id,
+          sanitizedInstructions,
+        });
+        setError(prev => prev ?? t('videoInstructionDiscardedWarning'));
+        setErrorKey(prev => prev ?? 'videoInstructionDiscardedWarning');
+      }
+
+      const instructionsToUse =
+        hasMeaningfulInstructions && sanitizedInstructions.length > 0
+          ? sanitizedInstructions
+          : recipe.instructions;
       const enrichedRecipe: RecipeRecommendation = {
         ...recipe,
-        instructions: steps.length > 0 ? steps : recipe.instructions,
+        instructions: instructionsToUse,
         videos: recipe.videos,
         ingredientsNeeded: recipe.ingredientsNeeded,
       };
@@ -1177,12 +1225,7 @@ const App: React.FC = () => {
         isOpen: true,
         recipe: enrichedRecipe,
         video,
-        instructions:
-          steps.length > 0
-            ? steps
-            : enrichedRecipe.instructions && enrichedRecipe.instructions.length > 0
-              ? enrichedRecipe.instructions
-              : recipe.instructions ?? [],
+        instructions: instructionsToUse.length > 0 ? instructionsToUse : recipe.instructions ?? [],
         missingIngredients: enrichedRecipe.missingIngredients ?? recipe.missingIngredients,
         transcriptStatus: transcript.status,
         transcriptMessageKey: transcript.messageKey,
