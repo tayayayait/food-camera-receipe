@@ -658,40 +658,11 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                           ) : recipe.isFullyMatched ? (
                             <p className="mt-2 text-xs font-semibold text-emerald-600">{t('recipeModalAllIngredientsOnHand')}</p>
                           ) : (
-                            <div className="mt-3 space-y-3">
-                              <div>
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
-                                  {t('recipeModalMissingIngredientsLabel')}
-                                </p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {recipe.missingIngredients.map(ingredient => (
-                                    <span
-                                      key={`missing-${recipe.recipeName}-${ingredient}`}
-                                      className="inline-flex items-center rounded-full border border-amber-100 bg-white px-3 py-1 text-xs font-medium text-amber-700 shadow-sm"
-                                    >
-                                      {ingredient}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                              {recipe.matchedIngredients.length > 0 && (
-                                <div>
-                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                                    {t('recipeModalMatchedIngredientsLabel')}
-                                  </p>
-                                  <div className="mt-2 flex flex-wrap gap-2">
-                                    {recipe.matchedIngredients.map(ingredient => (
-                                      <span
-                                        key={`matched-${recipe.recipeName}-${ingredient}`}
-                                        className="inline-flex items-center rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
-                                      >
-                                        {ingredient}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                            </div>
+                            <ul className="mt-3 list-disc list-inside space-y-1 text-xs text-gray-600">
+                              {ingredientsNeededToDisplay.map(ingredient => (
+                                <li key={`needed-${recipe.recipeName}-${ingredient}`}>{ingredient}</li>
+                              ))}
+                            </ul>
                           )}
                         </div>
                       )}

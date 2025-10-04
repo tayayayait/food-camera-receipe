@@ -1004,19 +1004,9 @@ const App: React.FC = () => {
                     key={recipe.recipeName}
                     className="rounded-3xl border border-[#7CB7FF]/25 bg-white/85 p-5 shadow-sm hover:shadow-md transition"
                   >
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="space-y-1">
-                        <h3 className="text-xl font-semibold text-[#1C2B4B]">{recipe.recipeName}</h3>
-                        <p className="text-sm text-[#1C2B4B]/70 md:max-w-xl">{recipe.description}</p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center rounded-full bg-[#EBF5FF] px-3 py-1 text-xs font-semibold text-[#1C2B4B]">
-                          {t('recipeModalMatchedIngredientsLabel')} · {recipe.matchedIngredients.length}
-                        </span>
-                        <span className="inline-flex items-center rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#1C2B4B]/80 border border-[#7CB7FF]/30">
-                          {t('recipeModalMissingIngredientsLabel')} · {recipe.missingIngredients.length}
-                        </span>
-                      </div>
+                    <div className="space-y-1">
+                      <h3 className="text-xl font-semibold text-[#1C2B4B]">{recipe.recipeName}</h3>
+                      <p className="text-sm text-[#1C2B4B]/70 md:max-w-xl">{recipe.description}</p>
                     </div>
                     <button
                       type="button"
