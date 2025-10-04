@@ -8,8 +8,7 @@ import VideoGuideWindow from '../VideoGuideWindow';
 import { LanguageProvider } from '../../context/LanguageContext';
 import type { RecipeRecommendation, RecipeVideo } from '../../types';
 import {
-  recipeModalStepByStepCautionTitle,
-  recipeModalStepByStepCautionHint,
+  recipeModalVideoTranscriptError,
 } from '../../locales/ko';
 
 const baseRecipe: RecipeRecommendation = {
@@ -39,7 +38,6 @@ describe('VideoGuideWindow', () => {
         <VideoGuideWindow
           recipe={baseRecipe}
           video={baseVideo}
-          instructions={['1. 재료 준비', '2. 조리하기']}
           missingIngredients={[]}
           transcriptStatus="error"
           transcriptMessageKey="recipeModalVideoTranscriptError"
@@ -50,7 +48,6 @@ describe('VideoGuideWindow', () => {
       </LanguageProvider>
     );
 
-    expect(html).toContain(recipeModalStepByStepCautionTitle);
-    expect(html).toContain(recipeModalStepByStepCautionHint);
+    expect(html).toContain(recipeModalVideoTranscriptError);
   });
 });
