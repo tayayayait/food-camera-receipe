@@ -23,8 +23,14 @@ const BottomToolbar: React.FC<BottomToolbarProps> = ({ actions }) => {
   };
 
   return (
-    <nav className="fixed inset-x-6 bottom-3 z-40">
-      <div className="rounded-2xl border border-[#7CB7FF]/30 bg-[#E2F0FF]/90 backdrop-blur-xl px-3 py-2 shadow-[0_12px_24px_rgba(124,183,255,0.28)]">
+    <nav
+      className="fixed inset-x-6 bottom-0 z-40"
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+    >
+      <div
+        className="rounded-2xl border border-[#7CB7FF]/30 bg-[#E2F0FF]/90 backdrop-blur-xl px-3 pt-2 shadow-[0_12px_24px_rgba(124,183,255,0.28)]"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 0.75rem)' }}
+      >
         <div className="grid gap-2" style={columnStyle}>
           {actions.map(action => (
             <button

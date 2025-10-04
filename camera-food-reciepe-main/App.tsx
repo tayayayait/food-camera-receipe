@@ -1216,7 +1216,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EBF5FF] via-[#E2F0FF] to-[#7CB7FF]/30 font-sans text-[#1C2B4B]">
       <Header />
-      <main className="container mx-auto max-w-5xl px-4 py-6 md:py-10 pb-36 space-y-8">
+      <main className="container mx-auto max-w-5xl px-4 py-6 md:py-10 pb-[calc(env(safe-area-inset-bottom)+9rem)] space-y-8">
         {videoAvailabilityNotice && (
           <div className="rounded-3xl border border-[#7CB7FF]/30 bg-white/80 px-4 py-3 text-sm text-[#1C2B4B]/80 shadow-sm">
             {videoAvailabilityNotice}
