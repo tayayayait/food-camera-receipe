@@ -19,6 +19,7 @@ import {
   recipeModalWatchVideosSubtitleSelected,
   recipeModalGuidanceTitle,
   recipeModalGuidanceCardScanTitle,
+  recipeModalSelectVideoButton,
 } from '../../locales/ko';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -149,16 +150,51 @@ describe('RecipeModal', () => {
     const { container, unmount } = renderModal({ recipes: [recipeWithVideo], onVideoSelect });
 
     try {
-      const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
-        button.textContent?.includes(recipeWithVideo.videos[0].title)
+      const selectButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes(recipeModalSelectVideoButton)
       );
-      expect(videoButton).toBeDefined();
+      expect(selectButton).toBeDefined();
 
       await act(async () => {
-        videoButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        selectButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
 
       expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
+    } finally {
+      unmount();
+    }
+  });
+
+  it('calls onVideoSelect before opening a new tab when the thumbnail is activated', async () => {
+    const recipeWithVideo: RecipeRecommendation = {
+      ...baseRecipe,
+      instructions: ['기존 단계 1', '기존 단계 2'],
+      videos: [
+        {
+          id: 'video-1',
+          title: 'Thumbnail Click Video',
+          channelTitle: 'Channel',
+          thumbnailUrl: 'thumb.jpg',
+          videoUrl: 'https://example.com/video',
+          transcriptStatus: 'unknown',
+        },
+      ],
+    };
+
+    const onVideoSelect = vi.fn();
+    const { container, unmount } = renderModal({ recipes: [recipeWithVideo], onVideoSelect });
+
+    try {
+      const thumbnailLink = container.querySelector(`a[href="${recipeWithVideo.videos[0].videoUrl}"]`);
+      expect(thumbnailLink).not.toBeNull();
+
+      await act(async () => {
+        thumbnailLink!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
+      expect(thumbnailLink?.getAttribute('target')).toBe('_blank');
+      expect(thumbnailLink?.getAttribute('rel')).toContain('noopener');
     } finally {
       unmount();
     }

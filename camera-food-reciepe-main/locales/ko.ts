@@ -143,6 +143,7 @@ export const recipeModalBadgeMissing = '{{count}}개 더 필요';
 export const recipeModalSearchProvidersLabel = '다음에서 자세한 레시피 찾기:';
 export const recipeModalProviderNoVideos = 'YouTube 영상 링크를 찾지 못했어요.';
 export const recipeModalProviderYoutubeLabel = 'YouTube';
+export const recipeModalSelectVideoButton = '영상 선택';
 export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
 export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
 export const recipeModalGuidanceTitle = '레시피 추천을 준비 중이에요';
