@@ -2,9 +2,8 @@
 
 import { describe, expect, it, vi, afterEach } from 'vitest';
 
-import React from 'react';
+import React, { act } from 'react';
 import { renderToString } from 'react-dom/server';
-import { act } from 'react-dom/test-utils';
 import { createRoot } from 'react-dom/client';
 
 import RecipeModal from '../RecipeModal';
