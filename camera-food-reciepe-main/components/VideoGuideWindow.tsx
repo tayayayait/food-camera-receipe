@@ -6,7 +6,6 @@ import { useLanguage } from '../context/LanguageContext';
 interface VideoGuideWindowProps {
   recipe: RecipeRecommendation;
   video: RecipeVideo;
-  instructions: string[];
   missingIngredients: string[];
   transcriptStatus: TranscriptPromptStatus['status'] | 'idle' | 'loading';
   transcriptMessageKey: string | null;
@@ -42,7 +41,6 @@ const resolveYoutubeEmbedUrl = (url: string): string | null => {
 const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
   recipe,
   video,
-  instructions,
   missingIngredients,
   transcriptStatus,
   transcriptMessageKey,
@@ -54,7 +52,6 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
   const embedUrl = useMemo(() => resolveYoutubeEmbedUrl(video.videoUrl), [video.videoUrl]);
   const transcriptMessage = transcriptMessageKey ? t(transcriptMessageKey as any) : null;
   const ingredientsToShow = missingIngredients.length > 0 ? missingIngredients : recipe.missingIngredients;
-  const isTranscriptWarning = transcriptStatus === 'missing' || transcriptStatus === 'error';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
@@ -131,38 +128,6 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
                   >
                     {transcriptMessage}
                   </p>
-                )}
-                {instructions.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-semibold text-gray-800">
-                      {isTranscriptWarning
-                        ? t('recipeModalStepByStepCautionTitle')
-                        : t('recipeModalStepByStepTitle')}
-                    </h3>
-                    {isTranscriptWarning && (
-                      <p className="text-xs text-red-500">
-                        {t('recipeModalStepByStepCautionSubtitle')}
-                      </p>
-                    )}
-                    <div className="space-y-3">
-                      {instructions.map((instruction, index) => (
-                        <div
-                          key={`${video.id}-instruction-${index}`}
-                          className="flex items-start gap-3 rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
-                        >
-                          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
-                            {index + 1}
-                          </span>
-                          <p className="text-sm leading-relaxed text-gray-700">{instruction}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <p className="text-right text-[11px] font-semibold uppercase tracking-wide text-brand-orange/80">
-                      {isTranscriptWarning
-                        ? t('recipeModalStepByStepCautionHint')
-                        : t('recipeModalStepByStepHint')}
-                    </p>
-                  </div>
                 )}
               </div>
 

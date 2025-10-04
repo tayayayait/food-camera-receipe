@@ -15,10 +15,8 @@ import {
   recipeModalVideoInstructionsLoading,
   recipeModalVideoInstructionsError,
   recipeModalVideoInstructionsSelectPrompt,
-  recipeModalStepByStepTitle,
-  recipeModalStepByStepCautionTitle,
-  recipeModalStepByStepCautionSubtitle,
-  recipeModalStepByStepCautionHint,
+  recipeModalVideoTranscriptUnavailable,
+  recipeModalWatchVideosSubtitleSelected,
   recipeModalGuidanceTitle,
   recipeModalGuidanceCardScanTitle,
 } from '../../locales/ko';
@@ -201,7 +199,7 @@ describe('RecipeModal', () => {
     }
   });
 
-  it('renders video-aligned instructions when available', () => {
+  it('renders selected video guidance messaging when enrichment completes', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
       instructions: ['기존 단계 1'],
@@ -222,6 +220,10 @@ describe('RecipeModal', () => {
       instructions: ['1. 새 단계 준비', '2. 다음 단계 이어가기'],
     };
 
+    const expectedSubtitle = recipeModalWatchVideosSubtitleSelected
+      .replace('{{channel}}', recipeWithVideo.videos[0].channelTitle)
+      .replace('{{title}}', recipeWithVideo.videos[0].title);
+
     const { container, unmount } = renderModal({
       recipes: [recipeWithVideo],
       videoRecipeState: {
@@ -235,9 +237,9 @@ describe('RecipeModal', () => {
     });
 
     try {
-      expect(container.textContent).toContain('새 단계 준비');
-      expect(container.textContent).toContain('다음 단계 이어가기');
-      expect(container.textContent).not.toContain('기존 단계 1');
+      const textContent = container.textContent ?? '';
+      expect(textContent).toContain(expectedSubtitle);
+      expect(textContent).not.toContain('기존 단계 1');
     } finally {
       unmount();
     }
@@ -278,7 +280,7 @@ describe('RecipeModal', () => {
     }
   });
 
-  it('shows cautionary messaging when the transcript is missing', () => {
+  it('surfaces transcript warnings when the transcript is missing', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
       instructions: ['기존 단계 1'],
@@ -316,10 +318,8 @@ describe('RecipeModal', () => {
 
     try {
       const textContent = container.textContent ?? '';
-      expect(textContent).toContain(recipeModalStepByStepCautionTitle);
-      expect(textContent).toContain(recipeModalStepByStepCautionSubtitle);
-      expect(textContent).toContain(recipeModalStepByStepCautionHint);
-      expect(textContent).not.toContain(recipeModalStepByStepTitle);
+      expect(textContent).toContain(recipeModalVideoTranscriptUnavailable);
+      expect(textContent).not.toContain(recipeModalVideoInstructionsSelectPrompt);
     } finally {
       unmount();
     }
@@ -341,7 +341,7 @@ describe('RecipeModal', () => {
     }
   });
 
-  it('hides the step-by-step section until a video is selected and instructions arrive', async () => {
+  it('updates the video guidance message once enrichment finishes', async () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
       videos: [
@@ -364,7 +364,6 @@ describe('RecipeModal', () => {
 
     try {
       expect(container.textContent).toContain(recipeModalVideoInstructionsSelectPrompt);
-      expect(container.textContent).not.toContain(recipeModalStepByStepTitle);
 
       const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
         button.textContent?.includes(recipeWithVideo.videos[0].title)
@@ -392,9 +391,10 @@ describe('RecipeModal', () => {
       });
 
       expect(container.textContent).not.toContain(recipeModalVideoInstructionsSelectPrompt);
-      expect(container.textContent).toContain('준비하기');
-      expect(container.textContent).toContain('마무리하기');
-      expect(container.textContent).toContain(recipeModalStepByStepTitle);
+      const expectedSubtitle = recipeModalWatchVideosSubtitleSelected
+        .replace('{{channel}}', recipeWithVideo.videos[0].channelTitle)
+        .replace('{{title}}', recipeWithVideo.videos[0].title);
+      expect(container.textContent).toContain(expectedSubtitle);
     } finally {
       unmount();
     }

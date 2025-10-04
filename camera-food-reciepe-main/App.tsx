@@ -43,7 +43,6 @@ type VideoGuideState = {
   isOpen: boolean;
   recipe: RecipeRecommendation | null;
   video: RecipeVideo | null;
-  instructions: string[];
   missingIngredients: string[];
   transcriptStatus: TranscriptPromptStatus['status'] | 'idle' | 'loading';
   transcriptMessageKey: string | null;
@@ -189,7 +188,6 @@ const App: React.FC = () => {
     isOpen: false,
     recipe: null,
     video: null,
-    instructions: [],
     missingIngredients: [],
     transcriptStatus: 'idle',
     transcriptMessageKey: null,
@@ -1151,7 +1149,6 @@ const App: React.FC = () => {
       isOpen: true,
       recipe,
       video,
-      instructions: [],
       missingIngredients: recipe.missingIngredients,
       transcriptStatus: 'loading',
       transcriptMessageKey: 'recipeModalVideoTranscriptLoading',
@@ -1225,7 +1222,6 @@ const App: React.FC = () => {
         isOpen: true,
         recipe: enrichedRecipe,
         video,
-        instructions: instructionsToUse.length > 0 ? instructionsToUse : recipe.instructions ?? [],
         missingIngredients: enrichedRecipe.missingIngredients ?? recipe.missingIngredients,
         transcriptStatus: transcript.status,
         transcriptMessageKey: transcript.messageKey,
@@ -1262,7 +1258,6 @@ const App: React.FC = () => {
         isOpen: true,
         recipe,
         video,
-        instructions: [],
         missingIngredients: recipe.missingIngredients,
         transcriptStatus: 'error',
         transcriptMessageKey: 'recipeModalVideoTranscriptError',
@@ -1285,7 +1280,6 @@ const App: React.FC = () => {
       isOpen: false,
       recipe: null,
       video: null,
-      instructions: [],
       missingIngredients: [],
       transcriptStatus: 'idle',
       transcriptMessageKey: null,
@@ -1356,7 +1350,6 @@ const App: React.FC = () => {
         <VideoGuideWindow
           recipe={videoGuideState.recipe}
           video={videoGuideState.video}
-          instructions={videoGuideState.instructions}
           missingIngredients={videoGuideState.missingIngredients}
           transcriptStatus={videoGuideState.transcriptStatus}
           transcriptMessageKey={videoGuideState.transcriptMessageKey}
