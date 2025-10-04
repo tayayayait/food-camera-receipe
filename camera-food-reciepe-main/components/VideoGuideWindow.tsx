@@ -54,9 +54,15 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
   const ingredientsToShow = missingIngredients.length > 0 ? missingIngredients : recipe.missingIngredients;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
-      <div className="flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <div className="flex flex-col gap-3 border-b border-gray-100 bg-brand-blue/5 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
+    <div
+      className="fixed inset-0 z-50 flex min-h-[100svh] items-center justify-center bg-black/60 px-4"
+      style={{
+        paddingTop: 'max(env(safe-area-inset-top, 0px), 2rem)',
+        paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 2rem)',
+      }}
+    >
+      <div className="flex h-full w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl sm:h-auto sm:max-h-[90vh]">
+        <div className="flex flex-shrink-0 flex-col gap-3 border-b border-gray-100 bg-brand-blue/5 px-6 py-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-semibold text-brand-blue">
               {t('videoGuideWindowTitle', { recipe: recipe.recipeName, title: video.title })}
@@ -87,7 +93,7 @@ const VideoGuideWindow: React.FC<VideoGuideWindowProps> = ({
           </div>
         </div>
 
-        <div className="max-h-[75vh] overflow-y-auto px-6 py-6">
+        <div className="flex-1 overflow-y-auto px-6 py-6 sm:max-h-[75vh]">
           {isLoading ? (
             <div className="flex h-60 flex-col items-center justify-center gap-3 text-brand-blue">
               <span className="h-8 w-8 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
