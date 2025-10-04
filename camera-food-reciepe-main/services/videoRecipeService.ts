@@ -35,8 +35,33 @@ interface YouTubeCaptionsResponse {
   items?: YouTubeCaptionItem[];
 }
 
+interface YouTubeCommentSnippet {
+  textOriginal?: string;
+}
+
+interface YouTubeComment {
+  id?: string;
+  snippet?: YouTubeCommentSnippet;
+}
+
+interface YouTubeCommentThreadSnippet {
+  topLevelComment?: YouTubeComment;
+}
+
+interface YouTubeCommentThread {
+  snippet?: YouTubeCommentThreadSnippet;
+  replies?: { comments?: YouTubeComment[] };
+}
+
+interface YouTubeCommentThreadsResponse {
+  items?: YouTubeCommentThread[];
+}
+
 const DESCRIPTION_LIMIT = 2000;
 const CAPTION_LIMIT = 6000;
+const COMMENTS_LIMIT = 2000;
+
+const MAX_REPLY_COUNT_PER_THREAD = 2;
 
 const sanitizeMultiline = (text: string) =>
   text
@@ -53,6 +78,12 @@ const truncate = (text: string, limit: number) => {
   }
   return text.slice(0, limit);
 };
+
+const sanitizeCommentText = (text: string) =>
+  sanitizeMultiline(text)
+    .replace(/\s*\n\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 const uniqueSanitizedList = (values: string[]) => {
   const seen = new Set<string>();
@@ -191,6 +222,66 @@ const fetchCaptionText = async (videoId: string) => {
   return '';
 };
 
+const fetchVideoComments = async (videoId: string) => {
+  try {
+    const params = new URLSearchParams({
+      part: 'snippet,replies',
+      videoId,
+      key: YOUTUBE_API_KEY ?? '',
+      maxResults: '20',
+      order: 'relevance',
+      textFormat: 'plainText',
+    });
+
+    const response = await fetch(`https://www.googleapis.com/youtube/v3/commentThreads?${params.toString()}`);
+
+    if (!response.ok) {
+      return '';
+    }
+
+    const data = (await response.json()) as YouTubeCommentThreadsResponse;
+    const threads = data.items ?? [];
+    const formattedComments: string[] = [];
+
+    for (const thread of threads) {
+      const topLevelText = thread.snippet?.topLevelComment?.snippet?.textOriginal;
+      const sanitizedTopLevel = topLevelText ? sanitizeCommentText(topLevelText) : '';
+
+      if (sanitizedTopLevel) {
+        formattedComments.push(`- ${sanitizedTopLevel}`);
+      }
+
+      const replies = thread.replies?.comments ?? [];
+      let replyCount = 0;
+
+      for (const reply of replies) {
+        if (replyCount >= MAX_REPLY_COUNT_PER_THREAD) {
+          break;
+        }
+
+        const replyText = reply.snippet?.textOriginal;
+        const sanitizedReply = replyText ? sanitizeCommentText(replyText) : '';
+
+        if (sanitizedReply) {
+          formattedComments.push(`  ↳ ${sanitizedReply}`);
+          replyCount += 1;
+        }
+      }
+    }
+
+    if (formattedComments.length === 0) {
+      return '';
+    }
+
+    const combinedComments = formattedComments.join('\n');
+    return truncate(combinedComments, COMMENTS_LIMIT).trim();
+  } catch (error) {
+    console.warn('Unable to fetch comments', error);
+  }
+
+  return '';
+};
+
 export async function analyzeVideoRecipe(video: RecipeVideo): Promise<Recipe> {
   if (!YOUTUBE_API_KEY) {
     throw new Error('error_youtube_api_key');
@@ -199,6 +290,7 @@ export async function analyzeVideoRecipe(video: RecipeVideo): Promise<Recipe> {
   try {
     const metadata = await fetchVideoMetadata(video.id);
     const captionText = await fetchCaptionText(video.id);
+    const commentText = await fetchVideoComments(video.id);
 
     const contextSections: string[] = [];
 
@@ -224,6 +316,10 @@ export async function analyzeVideoRecipe(video: RecipeVideo): Promise<Recipe> {
 
     if (captionText) {
       contextSections.push(`Transcript excerpt:\n${captionText}`);
+    }
+
+    if (commentText) {
+      contextSections.push(`Comments:\n${commentText}`);
     }
 
     const contextText = contextSections.join('\n\n').trim();
