@@ -499,18 +499,33 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                             <div className="grid gap-4 sm:grid-cols-2">
                               {providerVideos.map(video => {
                                 const isSelected = selectedVideo?.id === video.id;
+                                const cardClasses = `group flex w-full flex-col overflow-hidden rounded-xl border bg-gray-100 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-brand-blue/40 ${
+                                  isSelected
+                                    ? 'border-brand-blue/40 ring-2 ring-brand-blue shadow-lg'
+                                    : 'border-transparent hover:shadow-lg'
+                                }`;
+                                const handleThumbnailClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+                                  onVideoSelect(recipe, video);
+
+                                  if (event.defaultPrevented) {
+                                    return;
+                                  }
+
+                                  // Allow modifier key navigation behaviours without interference.
+                                  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+                                    return;
+                                  }
+                                };
+
                                 return (
-                                  <button
-                                    key={video.id}
-                                    type="button"
-                                    onClick={() => onVideoSelect(recipe, video)}
-                                    className={`group block w-full text-left rounded-xl overflow-hidden bg-gray-100 shadow-sm transition-shadow focus:outline-none focus:ring-2 focus:ring-brand-blue/40 border ${
-                                      isSelected
-                                        ? 'border-brand-blue/40 ring-2 ring-brand-blue shadow-lg'
-                                        : 'border-transparent hover:shadow-lg'
-                                    }`}
-                                  >
-                                    <div className="relative aspect-video overflow-hidden">
+                                  <div key={video.id} className={cardClasses}>
+                                    <a
+                                      href={video.videoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={handleThumbnailClick}
+                                      className="relative block aspect-video overflow-hidden focus:outline-none"
+                                    >
                                       <img
                                         src={video.thumbnailUrl}
                                         alt={video.title}
@@ -519,12 +534,25 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                       <span className="absolute bottom-2 left-2 rounded-full bg-black/70 px-2 py-1 text-xs text-white">
                                         YouTube
                                       </span>
+                                    </a>
+                                    <div className="bg-gray-100 p-4 space-y-3">
+                                      <div className="space-y-1">
+                                        <p className="text-sm font-semibold text-gray-800">{video.title}</p>
+                                        <p className="text-xs text-gray-500">{video.channelTitle}</p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => onVideoSelect(recipe, video)}
+                                        className={`w-full rounded-lg px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand-blue/40 ${
+                                          isSelected
+                                            ? 'bg-brand-blue text-white shadow'
+                                            : 'bg-white text-brand-blue hover:bg-brand-blue/10'
+                                        }`}
+                                      >
+                                        {t('recipeModalSelectVideoButton')}
+                                      </button>
                                     </div>
-                                    <div className="bg-gray-100 p-4 space-y-1">
-                                      <p className="text-sm font-semibold text-gray-800">{video.title}</p>
-                                      <p className="text-xs text-gray-500">{video.channelTitle}</p>
-                                    </div>
-                                  </button>
+                                  </div>
                                 );
                               })}
                             </div>
