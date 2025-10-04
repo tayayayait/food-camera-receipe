@@ -21,11 +21,48 @@ const mockGenerateInstructionsFromVideo = vi.fn<
   Promise<{ steps: string[]; transcript: { status: 'used'; messageKey: 'recipeModalVideoTranscriptUsed' } }>
 >();
 const mockGetRecipeVideos = vi.fn<[string, string[]], Promise<RecipeVideo[]>>();
+const mockAnalyzeIngredientsFromImage = vi.fn<[Blob], Promise<string[]>>();
+const mockGenerateDesignPreview = vi.fn<
+  [string[]],
+  Promise<{ status: 'success' | 'unsupported'; dataUrl: string; model: string | null; attemptedModels: string[] }>
+>();
+const mockGenerateJournalPreviewImage = vi.fn<
+  [
+    {
+      recipeName: string;
+      matchedIngredients?: string[];
+      missingIngredients?: string[];
+      artStyle?: string;
+    },
+  ],
+  Promise<{ status: 'success' | 'unsupported'; dataUrl: string; model: string | null; attemptedModels: string[] }>
+>();
 
 vi.mock('./components/CameraCapture', () => ({
   __esModule: true,
-  default: ({ isOpen }: { isOpen: boolean }) =>
-    isOpen ? <div data-testid="camera-capture" /> : null,
+  default: ({
+    isOpen,
+    onCapture,
+  }: {
+    isOpen: boolean;
+    onCapture: (photo: Blob) => Promise<void> | void;
+  }) => {
+    if (!isOpen) {
+      return null;
+    }
+
+    return (
+      <div data-testid="camera-capture">
+        <button
+          type="button"
+          data-testid="mock-capture"
+          onClick={() => onCapture(new Blob(['mock'], { type: 'image/png' }))}
+        >
+          Capture
+        </button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('./services/geminiService', () => ({
@@ -42,6 +79,24 @@ vi.mock('./services/videoService', () => ({
   __esModule: true,
   getRecipeVideos: (recipeName: string, ingredients: string[]) =>
     mockGetRecipeVideos(recipeName, ingredients),
+}));
+
+vi.mock('./services/visionService', () => ({
+  __esModule: true,
+  analyzeIngredientsFromImage: (image: Blob) => mockAnalyzeIngredientsFromImage(image),
+}));
+
+vi.mock('./services/designPreviewService', () => ({
+  __esModule: true,
+  generateDesignPreview: (ingredients: string[]) => mockGenerateDesignPreview(ingredients),
+  generateJournalPreviewImage: (
+    options: {
+      recipeName: string;
+      matchedIngredients?: string[];
+      missingIngredients?: string[];
+      artStyle?: string;
+    }
+  ) => mockGenerateJournalPreviewImage(options),
 }));
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -83,6 +138,14 @@ const clickStartButton = async (container: HTMLElement) => {
   });
 };
 
+const flushPromises = async (count = 1) => {
+  for (let index = 0; index < count; index += 1) {
+    await act(async () => {
+      await Promise.resolve();
+    });
+  }
+};
+
 describe('App intro start behavior', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -90,11 +153,27 @@ describe('App intro start behavior', () => {
     mockGetRecipeSuggestions.mockReset();
     mockGenerateInstructionsFromVideo.mockReset();
     mockGetRecipeVideos.mockReset();
+    mockAnalyzeIngredientsFromImage.mockReset();
+    mockGenerateDesignPreview.mockReset();
+    mockGenerateJournalPreviewImage.mockReset();
     mockGetRecipeSuggestions.mockResolvedValue([]);
     mockGetRecipeVideos.mockResolvedValue([]);
     mockGenerateInstructionsFromVideo.mockResolvedValue({
       steps: ['1. 준비'],
       transcript: { status: 'used', messageKey: 'recipeModalVideoTranscriptUsed' },
+    });
+    mockAnalyzeIngredientsFromImage.mockResolvedValue([]);
+    mockGenerateDesignPreview.mockResolvedValue({
+      status: 'success',
+      dataUrl: 'data:image/png;base64,preview',
+      model: 'mock-preview',
+      attemptedModels: [],
+    });
+    mockGenerateJournalPreviewImage.mockResolvedValue({
+      status: 'success',
+      dataUrl: 'data:image/png;base64,journal',
+      model: 'mock-journal',
+      attemptedModels: [],
     });
   });
 
@@ -139,21 +218,107 @@ describe('App intro start behavior', () => {
   });
 });
 
-describe('handleSelectVideoForRecipe', () => {
-  const flushPromises = async (count = 1) => {
-    for (let index = 0; index < count; index += 1) {
-      await act(async () => {
-        await Promise.resolve();
-      });
-    }
-  };
-
+describe('handleCameraCapture', () => {
   beforeEach(() => {
     localStorage.clear();
     document.body.innerHTML = '';
     mockGetRecipeSuggestions.mockReset();
     mockGenerateInstructionsFromVideo.mockReset();
     mockGetRecipeVideos.mockReset();
+    mockAnalyzeIngredientsFromImage.mockReset();
+    mockGenerateDesignPreview.mockReset();
+    mockGenerateJournalPreviewImage.mockReset();
+    mockGetRecipeSuggestions.mockResolvedValue([]);
+    mockGetRecipeVideos.mockResolvedValue([]);
+    mockGenerateInstructionsFromVideo.mockResolvedValue({
+      steps: ['1. 준비'],
+      transcript: { status: 'used', messageKey: 'recipeModalVideoTranscriptUsed' },
+    });
+    mockAnalyzeIngredientsFromImage.mockResolvedValue([]);
+    mockGenerateDesignPreview.mockResolvedValue({
+      status: 'success',
+      dataUrl: 'data:image/png;base64,preview',
+      model: 'mock-preview',
+      attemptedModels: [],
+    });
+    mockGenerateJournalPreviewImage.mockResolvedValue({
+      status: 'success',
+      dataUrl: 'data:image/png;base64,journal',
+      model: 'mock-journal',
+      attemptedModels: [],
+    });
+  });
+
+  it('applies nutrition summary and focuses the nutrition view after scanning ingredients', async () => {
+    mockAnalyzeIngredientsFromImage.mockResolvedValue(['토마토', ' 모짜렐라 ']);
+
+    const { container, cleanup } = await renderApp();
+
+    try {
+      const scanButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes('냉장고 스캔하기')
+      );
+      expect(scanButton).toBeDefined();
+
+      await act(async () => {
+        scanButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      await flushPromises(1);
+
+      let captureButton = container.querySelector('[data-testid="mock-capture"]') as HTMLButtonElement | null;
+      if (!captureButton) {
+        await flushPromises(2);
+        captureButton = container.querySelector('[data-testid="mock-capture"]') as HTMLButtonElement | null;
+      }
+      expect(captureButton).not.toBeNull();
+
+      await act(async () => {
+        captureButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      await flushPromises(6);
+
+      expect(mockAnalyzeIngredientsFromImage).toHaveBeenCalledOnce();
+      expect(mockGenerateDesignPreview).toHaveBeenCalledWith(['토마토', '모짜렐라']);
+
+      expect(container.textContent).toContain('예상 영양 구성');
+      expect(container.textContent).toContain('토마토');
+      expect(container.textContent).toContain('모짜렐라');
+
+      const nutritionToolbarButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes('영양 요약')
+      );
+      expect(nutritionToolbarButton?.getAttribute('aria-pressed')).toBe('true');
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('handleSelectVideoForRecipe', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    document.body.innerHTML = '';
+    mockGetRecipeSuggestions.mockReset();
+    mockGenerateInstructionsFromVideo.mockReset();
+    mockGetRecipeVideos.mockReset();
+    mockAnalyzeIngredientsFromImage.mockReset();
+    mockGenerateDesignPreview.mockReset();
+    mockGenerateJournalPreviewImage.mockReset();
+    mockAnalyzeIngredientsFromImage.mockResolvedValue([]);
+    mockGenerateDesignPreview.mockResolvedValue({
+      status: 'success',
+      dataUrl: 'data:image/png;base64,preview',
+      model: 'mock-preview',
+      attemptedModels: [],
+    });
+    mockGenerateJournalPreviewImage.mockResolvedValue({
+      status: 'success',
+      dataUrl: 'data:image/png;base64,journal',
+      model: 'mock-journal',
+      attemptedModels: [],
+    });
   });
 
   it('applies nutrition and focuses the nutrition view after selecting a video', async () => {
