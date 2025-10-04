@@ -148,7 +148,7 @@ export async function getRecipeFromVideoContext({
         channelTitle ? `Channel: ${channelTitle}` : null,
         `YouTube Video ID: ${videoId}`,
         sanitizedContext
-            ? `Video Context (description, transcript excerpts):\n${sanitizedContext}`
+            ? `Video Context (description, transcript excerpts, comments):\n${sanitizedContext}`
             : 'Video Context: (no transcript or description available)',
     ]
         .filter((line): line is string => Boolean(line))
