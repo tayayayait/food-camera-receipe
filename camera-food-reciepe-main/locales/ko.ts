@@ -268,8 +268,6 @@ export const journalQuickLogFirst = '오늘 첫 요리 기록';
 export const journalDelete = '기록에서 삭제';
 export const journalLastCooked = '마지막 요리: {{date}}';
 
-export const recipeModalJournalTitle = '이 레시피를 기록장에 저장하기';
-export const recipeModalJournalSubtitle = '다음에 참고할 변형, 양 조절, 만든 횟수를 한곳에 모아두세요.';
 export const recipeModalSaveButton = '기록에 추가';
 export const recipeModalSaveButtonSaved = '이미 저장됨';
 export const recipeModalSaveNewSuccess = '기록장에 추가했어요!';
