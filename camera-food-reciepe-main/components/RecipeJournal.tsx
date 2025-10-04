@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { RecipeMemory } from '../types';
-import { BookOpenIcon, FlameIcon, TrashIcon, ClipboardIcon, MoreVerticalIcon } from './icons';
+import { BookOpenIcon, TrashIcon, ClipboardIcon, MoreVerticalIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 
 interface RecipeJournalProps {
@@ -213,6 +213,10 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
             const lastCookedLabel = entry.lastCookedAt
               ? formatter.format(new Date(entry.lastCookedAt))
               : null;
+            const videos = entry.videos ?? [];
+            const selectedVideo = entry.selectedVideoId
+              ? videos.find(video => video.id === entry.selectedVideoId) ?? null
+              : videos[0] ?? null;
 
             return (
               <article
@@ -321,28 +325,37 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                   </div>
 
                   <div className="flex-1 space-y-5">
-                    <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="space-y-1">
                         <h3 className="text-xl font-semibold text-gray-800">{entry.recipeName}</h3>
                         <p className="text-xs text-gray-500">
                           {t('journalCreatedAt', { date: createdAtLabel })}
                         </p>
-                        {entry.timesCooked > 0 && (
-                          <p className="text-xs text-emerald-600 font-semibold">
-                            {t('journalTimesCooked', { count: entry.timesCooked })}
+                        {lastCookedLabel && (
+                          <p className="text-xs font-semibold text-brand-blue">
+                            {t('journalLastWatched', { date: lastCookedLabel })}
                           </p>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-widest">
-                        {entry.matchedIngredients && entry.matchedIngredients.length > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-emerald-50 text-emerald-700 px-3 py-1">
-                            {t('journalMatchedBadge', { count: entry.matchedIngredients.length })}
-                          </span>
-                        )}
-                        {entry.missingIngredients && entry.missingIngredients.length > 0 && (
-                          <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-700 px-3 py-1">
-                            {t('journalMissingBadge', { count: entry.missingIngredients.length })}
-                          </span>
+                      <div className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+                        {selectedVideo ? (
+                          <div className="space-y-2">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-gray-400">
+                              {t('journalSelectedVideoLabel')}
+                            </p>
+                            <p className="text-sm font-semibold text-gray-800">{selectedVideo.title}</p>
+                            <p className="text-xs text-gray-500">{selectedVideo.channelTitle}</p>
+                            <a
+                              href={selectedVideo.videoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 text-xs font-semibold text-brand-blue hover:underline"
+                            >
+                              {t('journalWatchVideo')}
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-500">{t('journalNoVideoSaved')}</p>
                         )}
                       </div>
                     </header>
@@ -380,15 +393,8 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                             onClick={() => onOpenDetails(entry.id)}
                             className="inline-flex items-center gap-2 rounded-xl bg-brand-orange text-white px-4 py-2 text-sm font-semibold shadow hover:bg-orange-500 transition"
                           >
-                            <FlameIcon />
+                            <BookOpenIcon />
                             {t('journalOpenDetails')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onMarkCooked(entry.id)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-brand-orange/30 text-brand-orange px-4 py-2 text-sm font-semibold hover:bg-brand-orange/10 transition"
-                          >
-                            {entry.lastCookedAt ? t('journalQuickLogAgain') : t('journalQuickLogFirst')}
                           </button>
                           <button
                             type="button"
@@ -400,11 +406,6 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                           </button>
                         </div>
                       </div>
-                      {lastCookedLabel && (
-                        <p className="text-[11px] uppercase tracking-widest font-semibold text-gray-400">
-                          {t('journalLastCooked', { date: lastCookedLabel })}
-                        </p>
-                      )}
                     </div>
                   </div>
                 </div>

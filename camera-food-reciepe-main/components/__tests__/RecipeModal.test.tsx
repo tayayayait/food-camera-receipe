@@ -10,26 +10,15 @@ import { createRoot } from 'react-dom/client';
 import RecipeModal from '../RecipeModal';
 import { LanguageProvider } from '../../context/LanguageContext';
 import type { RecipeRecommendation } from '../../types';
-import {
-  error_youtube_api_key,
-  recipeModalVideoInstructionsLoading,
-  recipeModalVideoInstructionsError,
-  recipeModalVideoInstructionsSelectPrompt,
-  recipeModalStepByStepTitle,
-  recipeModalStepByStepCautionTitle,
-  recipeModalStepByStepCautionSubtitle,
-  recipeModalStepByStepCautionHint,
-  recipeModalGuidanceTitle,
-  recipeModalGuidanceCardScanTitle,
-} from '../../locales/ko';
+import { error_youtube_api_key, videoModalSyncing } from '../../locales/ko';
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const baseRecipe: RecipeRecommendation = {
-  recipeName: '테스트 레시피',
-  description: '설명',
+  recipeName: '테스트 추천',
+  description: '샘플 설명',
   ingredientsNeeded: [],
-  instructions: ['단계 1', '단계 2'],
+  instructions: [],
   videos: [],
   missingIngredients: ['양파'],
   matchedIngredients: ['마늘'],
@@ -134,7 +123,6 @@ describe('RecipeModal', () => {
   it('invokes onVideoSelect when a video card is clicked', async () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
-      instructions: ['기존 단계 1', '기존 단계 2'],
       videos: [
         {
           id: 'video-1',
@@ -166,10 +154,9 @@ describe('RecipeModal', () => {
     }
   });
 
-  it('shows a loading state for the targeted video recipe', () => {
+  it('shows a syncing message for the targeted recipe while loading', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
-      instructions: ['기존 단계 1'],
       videos: [
         {
           id: 'video-1',
@@ -195,58 +182,15 @@ describe('RecipeModal', () => {
     });
 
     try {
-      expect(container.textContent).toContain(recipeModalVideoInstructionsLoading);
+      expect(container.textContent).toContain(videoModalSyncing);
     } finally {
       unmount();
     }
   });
 
-  it('renders video-aligned instructions when available', () => {
+  it('surfaces an error message when video syncing fails', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
-      instructions: ['기존 단계 1'],
-      videos: [
-        {
-          id: 'video-1',
-          title: 'Success Video',
-          channelTitle: 'Channel',
-          thumbnailUrl: 'thumb.jpg',
-          videoUrl: 'https://example.com/video',
-          transcriptStatus: 'unknown',
-        },
-      ],
-    };
-
-    const enrichedRecipe: RecipeRecommendation = {
-      ...recipeWithVideo,
-      instructions: ['1. 새 단계 준비', '2. 다음 단계 이어가기'],
-    };
-
-    const { container, unmount } = renderModal({
-      recipes: [recipeWithVideo],
-      videoRecipeState: {
-        recipe: enrichedRecipe,
-        selectedVideo: recipeWithVideo.videos[0],
-        targetRecipeName: recipeWithVideo.recipeName,
-        isLoading: false,
-        error: null,
-        transcript: { status: 'used', messageKey: null },
-      },
-    });
-
-    try {
-      expect(container.textContent).toContain('새 단계 준비');
-      expect(container.textContent).toContain('다음 단계 이어가기');
-      expect(container.textContent).not.toContain('기존 단계 1');
-    } finally {
-      unmount();
-    }
-  });
-
-  it('shows an error state when video-aligned instructions fail', () => {
-    const recipeWithVideo: RecipeRecommendation = {
-      ...baseRecipe,
-      instructions: ['기존 단계 1'],
       videos: [
         {
           id: 'video-1',
@@ -259,6 +203,7 @@ describe('RecipeModal', () => {
       ],
     };
 
+    const errorMessage = '영상 정보를 불러오지 못했어요.';
     const { container, unmount } = renderModal({
       recipes: [recipeWithVideo],
       videoRecipeState: {
@@ -266,135 +211,13 @@ describe('RecipeModal', () => {
         selectedVideo: recipeWithVideo.videos[0],
         targetRecipeName: recipeWithVideo.recipeName,
         isLoading: false,
-        error: recipeModalVideoInstructionsError,
-        transcript: { status: 'error', messageKey: null },
+        error: errorMessage,
+        transcript: { status: 'idle', messageKey: null },
       },
     });
 
     try {
-      expect(container.textContent).toContain(recipeModalVideoInstructionsError);
-    } finally {
-      unmount();
-    }
-  });
-
-  it('shows cautionary messaging when the transcript is missing', () => {
-    const recipeWithVideo: RecipeRecommendation = {
-      ...baseRecipe,
-      instructions: ['기존 단계 1'],
-      videos: [
-        {
-          id: 'video-1',
-          title: 'Missing Transcript Video',
-          channelTitle: 'Channel',
-          thumbnailUrl: 'thumb.jpg',
-          videoUrl: 'https://example.com/video',
-          transcriptStatus: 'unknown',
-        },
-      ],
-    };
-
-    const enrichedRecipe: RecipeRecommendation = {
-      ...recipeWithVideo,
-      instructions: ['1. 주재료 손질', '2. 마무리 정리'],
-    };
-
-    const { container, unmount } = renderModal({
-      recipes: [recipeWithVideo],
-      videoRecipeState: {
-        recipe: enrichedRecipe,
-        selectedVideo: recipeWithVideo.videos[0],
-        targetRecipeName: recipeWithVideo.recipeName,
-        isLoading: false,
-        error: null,
-        transcript: {
-          status: 'missing',
-          messageKey: 'recipeModalVideoTranscriptUnavailable',
-        },
-      },
-    });
-
-    try {
-      const textContent = container.textContent ?? '';
-      expect(textContent).toContain(recipeModalStepByStepCautionTitle);
-      expect(textContent).toContain(recipeModalStepByStepCautionSubtitle);
-      expect(textContent).toContain(recipeModalStepByStepCautionHint);
-      expect(textContent).not.toContain(recipeModalStepByStepTitle);
-    } finally {
-      unmount();
-    }
-  });
-
-  it('renders guidance cards when recipe details are hidden', () => {
-    const { container, unmount } = renderModal({
-      shouldHideRecipeDetails: true,
-      recipes: [baseRecipe],
-    });
-
-    try {
-      const textContent = container.textContent ?? '';
-      expect(textContent).toContain(recipeModalGuidanceTitle);
-      expect(textContent).toContain(recipeModalGuidanceCardScanTitle);
-      expect(textContent).not.toContain(baseRecipe.recipeName);
-    } finally {
-      unmount();
-    }
-  });
-
-  it('hides the step-by-step section until a video is selected and instructions arrive', async () => {
-    const recipeWithVideo: RecipeRecommendation = {
-      ...baseRecipe,
-      videos: [
-        {
-          id: 'video-1',
-          title: 'Prompt Video',
-          channelTitle: 'Channel',
-          thumbnailUrl: 'thumb.jpg',
-          videoUrl: 'https://example.com/video',
-          transcriptStatus: 'unknown',
-        },
-      ],
-    };
-
-    const onVideoSelect = vi.fn();
-    const { container, rerender, unmount } = renderModal({
-      recipes: [recipeWithVideo],
-      onVideoSelect,
-    });
-
-    try {
-      expect(container.textContent).toContain(recipeModalVideoInstructionsSelectPrompt);
-      expect(container.textContent).not.toContain(recipeModalStepByStepTitle);
-
-      const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
-        button.textContent?.includes(recipeWithVideo.videos[0].title)
-      );
-      expect(videoButton).toBeDefined();
-
-      await act(async () => {
-        videoButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-      });
-
-      expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
-
-      rerender({
-        videoRecipeState: {
-          recipe: {
-            ...recipeWithVideo,
-            instructions: ['1. 준비하기', '2. 마무리하기'],
-          },
-          selectedVideo: recipeWithVideo.videos[0],
-          targetRecipeName: recipeWithVideo.recipeName,
-          isLoading: false,
-          error: null,
-          transcript: { status: 'used', messageKey: null },
-        },
-      });
-
-      expect(container.textContent).not.toContain(recipeModalVideoInstructionsSelectPrompt);
-      expect(container.textContent).toContain('준비하기');
-      expect(container.textContent).toContain('마무리하기');
-      expect(container.textContent).toContain(recipeModalStepByStepTitle);
+      expect(container.textContent).toContain(errorMessage);
     } finally {
       unmount();
     }
