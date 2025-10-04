@@ -14,27 +14,27 @@ export const introMoodboardError = '분위기 미리보기를 불러오지 못�
 export const introMoodboardUnsupported = '현재 설정된 Gemini 이미지 모델에서 분위기 미리보기를 지원하지 않아요.';
 
 export const navPantry = '스캔결과';
-export const navRecipes = '레시피';
+export const navRecipes = '영상 추천';
 export const navNutrition = '영양';
 export const navJournal = '기록';
 
 export const pantryViewTagline = '최근 스캔 결과';
-export const recipesViewTagline = '레시피 연구실';
-export const recipesViewTitle = '냉장고 재료로 오늘의 메뉴 찾기';
+export const recipesViewTagline = '영상 추천실';
+export const recipesViewTitle = '냉장고 재료로 맞춤 동영상 찾기';
 export const recipesViewSubtitle =
-  '선택한 재료로 레시피를 추천받고, 필요할 때마다 영양 정보를 함께 확인하세요.';
+  '선택한 재료에 어울리는 요리 영상을 추천해드려요. 마음에 드는 영상을 열어 바로 시청하세요.';
 export const recipesViewSuggestButton = '추천 새로고침';
 export const recipesViewScanButton = '새로 스캔하기';
 export const recipesViewNutritionButton = '영양 보기';
-export const recipesViewOpenModal = '전체 레시피 보기';
-export const recipesViewEmpty = '재료를 스캔하면 맞춤 레시피를 추천해드려요.';
-export const recipesViewMore = '추천 창에서 {{count}}개의 레시피를 더 확인할 수 있어요.';
+export const recipesViewOpenModal = '추천 영상 보기';
+export const recipesViewEmpty = '재료를 스캔하면 맞춤 동영상을 추천해드려요.';
+export const recipesViewMore = '추천 창에서 {{count}}개의 영상을 더 확인할 수 있어요.';
 export const nutritionEmptyTitle = '아직 영양 요약이 없어요';
 export const nutritionEmptyDescription =
   '레시피를 선택하면 예상 칼로리와 영양 구성을 확인할 수 있어요.';
 export const nutritionEmptyRecipes = '레시피 추천 열기';
 export const nutritionEmptyScan = '재료 스캔하기';
-export const journalViewTagline = '요리 기록장';
+export const journalViewTagline = '영상 노트';
 
 export const heroSectionTagline = '냉장고 속 재료로 만드는 식사 아이디어';
 export const heroSectionTitle = '냉장고를 촬영하거나 재료를 입력하세요. 저녁 메뉴는 저희가 제안해 드릴게요.';
@@ -84,86 +84,38 @@ export const addItemModalAdd = '재료 추가';
 
 export const fabAriaLabel = '새 재료 추가';
 
-export const recipeModalTitle = '맞춤 레시피 추천';
-export const recipeModalBasedOn = '사용한 재료:';
-export const recipeModalAddMore = '재료를 더 추가하면 추천 정확도가 올라가요.';
-export const recipeModalViewRecipe = '자세한 레시피 보기 →';
-export const recipeModalDetectedIngredientsTitle = '스캔된 재료 확인';
-export const recipeModalDetectedIngredientsDescription =
-  '최근 스캔에서 인식한 재료예요. 필요한 재료가 빠지지 않았는지 가볍게 확인해보세요.';
-export const recipeModalEditIngredientsButton = '재료 편집';
-export const recipeModalEditIngredientsClose = '편집 닫기';
-export const recipeModalEditIngredientsPlaceholder = '예: 닭가슴살, 양파, 간장';
-export const recipeModalEditIngredientsHint = '쉼표 또는 줄바꿈으로 재료를 구분해주세요.';
-export const recipeModalEditIngredientsCancel = '취소';
-export const recipeModalEditIngredientsApply = '목록 업데이트';
-export const recipeModalEditIngredientsSaving = '업데이트 중...';
-export const recipeModalEditIngredientsSuccess = '재료 목록이 업데이트되었어요.';
-export const recipeModalEditIngredientsError = '최소 한 가지 재료를 입력해주세요.';
-export const recipeModalPreviewLoading = '플레이팅 미리보기를 준비하고 있어요...';
-export const recipeModalPreviewError = '미리보기를 불러오지 못했어요.';
-export const recipeModalPreviewRetry = '다시 시도';
-export const recipeModalPreviewRefresh = '미리보기 새로고침';
-export const recipeModalPreviewUnsupported = '현재 설정에서는 AI 썸네일이 지원되지 않아요.';
-export const recipeModalNutritionSnapshotTitle = '현재 영양 요약';
-export const recipeModalNutritionSnapshotSubtitle = '감지된 재료 {{count}}개 기준';
-export const recipeModalNutritionSnapshotHint = '참고용 수치예요. 레시피별로 “영양 보기”를 눌러 더 정확한 추정을 확인하세요.';
-export const recipeModalNeededIngredients = '추가로 있으면 좋은 재료';
-export const recipeModalNoExtraIngredients = '추가로 필요한 재료가 없어요.';
-export const recipeModalStepByStepTitle = '이 순서대로 천천히 따라오세요';
-export const recipeModalStepByStepSubtitle = '큰 동작은 위에, 필요한 팁은 아래에 정리했어요.';
-export const recipeModalStepByStepHint = '카드를 순서대로 따라가면 부담 없이 완성돼요.';
-export const recipeModalStepByStepCautionTitle = '영상 자막 없이 정리된 단계예요';
-export const recipeModalStepByStepCautionSubtitle = '영상 진행과 다를 수 있으니 실제 영상을 보며 순서를 확인해주세요.';
-export const recipeModalStepByStepCautionHint = '핵심 장면이 빠졌다면 영상 타임라인을 참고해 직접 보완해주세요.';
-export const recipeModalVideoInstructionsLoading = '선택한 영상에 맞춰 단계를 정리하고 있어요...';
-export const recipeModalVideoInstructionsError = '영상에 맞춘 단계를 불러오지 못했어요.';
-export const recipeModalVideoInstructionsSelectPrompt = '먼저 영상을 선택하면 단계가 나타나요.';
-export const recipeModalVideoTranscriptLoading = '영상 자막을 불러오는 중이에요...';
-export const recipeModalVideoTranscriptUsed = '영상 자막을 참고해 단계를 정리했어요.';
-export const recipeModalVideoTranscriptAuto = '자동 생성된 자막을 참고해 단계를 정리했어요.';
-export const recipeModalVideoTranscriptUnavailable = '이 영상에는 자막이 없어 영상 정보만 활용했어요.';
-export const recipeModalVideoTranscriptError = '자막을 불러오지 못해 영상 정보만으로 단계를 정리했어요.';
+export const videoModalTitle = '추천 동영상';
+export const videoModalSubtitle = '보고 싶은 영상을 선택하면 바로 시청 화면이 열려요.';
+export const videoModalEmptyVideos = '이 조합과 연결된 영상이 아직 없어요.';
+export const videoModalSelectedBadge = '선택됨';
+export const videoModalWatchAction = '영상 보기';
+export const videoModalGuideOpen = '가이드 열림';
+export const videoModalPlaceholder = '영상 추천을 준비하고 있어요. 잠시만 기다려주세요.';
+export const videoModalEmptyState = '추천할 동영상을 찾지 못했어요. 다른 재료를 선택해보세요.';
+export const videoModalSyncing = '선택한 영상 정보를 정리하는 중이에요...';
+export const videoModalListHeading = '추천 영상 모음';
+export const videoModalClose = '닫기';
+
+export const recipeModalMissingIngredientsLabel = '추가 필요 재료';
+export const recipeModalMatchedIngredientsLabel = '보유 재료';
+export const recipeModalNoResults = '추천할 영상을 찾지 못했어요. 다른 재료를 조합해보세요.';
+
+export const recipeModalVideoTranscriptLoading = '영상 자막 정보를 불러오는 중이에요...';
+export const recipeModalVideoTranscriptUsed = '영상 자막을 참고해 노트를 정리했어요.';
+export const recipeModalVideoTranscriptAuto = '자동 생성된 자막을 참고해 노트를 정리했어요.';
+export const recipeModalVideoTranscriptUnavailable = '이 영상에는 자막이 없어 기본 정보를 표시했어요.';
+export const recipeModalVideoTranscriptError = '자막 정보를 불러오지 못해 기본 내용을 유지했어요.';
 export const videoInstructionDiscardedWarning =
-  '생성된 영상 단계가 충분히 신뢰되지 않아 기존 단계를 유지했어요.';
-export const recipeModalWatchVideosHeadingDefault = '영상으로 따라해보세요';
-export const recipeModalWatchVideosHeadingSelected = '선택한 영상: {{title}}';
-export const recipeModalWatchVideosSubtitleDefault =
-  '마음에 드는 YouTube 영상을 고르면 가이드 창에서 단계별로 따라할 수 있어요.';
-export const recipeModalWatchVideosSubtitleSelected =
-  '{{channel}} 채널의 "{{title}}" 영상으로 가이드 창을 열었어요. 영상을 보며 단계를 따라가세요.';
-export const recipeModalNoVideos = '적절한 영상을 찾지 못했어요. 다른 레시피를 선택해보세요.';
-export const recipeModalNoResults = '추천 결과가 없어요. 재료를 조금만 더 추가해보세요!';
-export const recipeModalClose = '닫기';
-export const recipeModalAllIngredientsOnHand = '필요한 재료가 모두 냉장고에 준비되어 있어요.';
-export const recipeModalMissingIngredientsLabel = '부족한 재료';
-export const recipeModalMatchedIngredientsLabel = '이미 보유';
-export const recipeModalBadgeReady = '바로 요리 가능';
-export const recipeModalBadgeMissing = '{{count}}개 더 필요';
-export const recipeModalSearchProvidersLabel = '다음에서 자세한 레시피 찾기:';
-export const recipeModalProviderNoVideos = 'YouTube 영상 링크를 찾지 못했어요.';
-export const recipeModalProviderYoutubeLabel = 'YouTube';
-export const recipeModalRecipeNutritionHint = '이 레시피에 맞춘 영양 추정을 바로 확인해보세요.';
-export const recipeModalRecipeNutritionButton = '이 레시피 영양 보기';
-export const recipeModalGuidanceTitle = '레시피 추천을 준비 중이에요';
-export const recipeModalGuidanceSubtitle =
-  '재료를 인식하거나 입력하면 레시피 카드가 나타납니다. 아래 안내를 참고해 준비해보세요.';
-export const recipeModalGuidanceCardScanTitle = '재료 스캔하기';
-export const recipeModalGuidanceCardScanDescription =
-  '카메라로 냉장고를 촬영하면 필요한 재료가 자동으로 정리돼요.';
-export const recipeModalGuidanceCardIdeasTitle = '직접 재료 입력하기';
-export const recipeModalGuidanceCardIdeasDescription =
-  '떠오르는 재료를 입력해 맞춤 추천의 정확도를 높여보세요.';
-export const recipeModalGuidanceCardJournalTitle = '나만의 기록 만들기';
-export const recipeModalGuidanceCardJournalDescription =
-  '마음에 드는 조합을 찾으면 기록에 저장해 다음에도 빠르게 찾아보세요.';
+  '영상 노트를 정리하는 중 문제가 발생해 기존 내용을 유지했어요.';
 
 export const videoGuideWindowTitle = '{{recipe}} · {{title}}';
-export const videoGuideWindowSubtitle = '{{channel}} 채널 영상을 보며 단계별로 따라오세요.';
+export const videoGuideWindowSubtitle = '{{channel}} 채널 영상으로 바로 시청하세요.';
 export const videoGuideWindowOpenExternally = 'YouTube에서 영상 열기';
-export const videoGuideWindowClose = '가이드 닫기';
-export const videoGuideWindowLoading = '영상 가이드를 불러오는 중이에요...';
-export const videoGuideWindowError = '영상 가이드를 열 수 없었어요. 잠시 후 다시 시도해주세요.';
+export const videoGuideWindowClose = '창 닫기';
+export const videoGuideWindowLoading = '영상 플레이어를 준비하고 있어요...';
+export const videoGuideWindowError = '영상 플레이어를 열 수 없었어요. 잠시 후 다시 시도해주세요.';
+export const videoGuideWindowNowPlaying = '현재 재생 중인 영상';
+export const videoGuideWindowHint = '새 창에서도 동일한 영상이 재생돼요.';
 
 export const cameraModalErrorUnsupported =
   '이 기기에서는 카메라를 사용할 수 없어요. 지원되는 스마트폰이나 태블릿에서 다시 시도해주세요.';
@@ -231,12 +183,12 @@ export const error_transcript_invalid_video = '유효한 YouTube 영상 ID를 �
 export const error_transcript_fetch = '영상 자막을 불러오는 중 문제가 발생했어요.';
 export const error_vision_fetch = '이미지에서 재료를 분석하는 데 실패했어요. 잠시 후 다시 시도해주세요.';
 
-export const journalSectionTitle = '나의 요리 기록';
-export const journalSectionDescription = '실제로 만들어본 요리를 저장하고 다음에 참고할 메모를 남겨보세요.';
-export const journalSectionHint = '팁: 레시피 카드에서 “기록에 추가”를 누르면 바로 저장돼요.';
-export const journalEmptyState = '아직 저장한 요리가 없어요. 추천 레시피에서 마음에 드는 요리를 기록해보세요.';
+export const journalSectionTitle = '나의 영상 노트';
+export const journalSectionDescription = '추천받은 동영상과 시청 노트를 한 곳에서 정리해보세요.';
+export const journalSectionHint = '노트를 수정한 뒤에는 “노트 저장” 버튼을 눌러주세요.';
+export const journalEmptyState = '아직 저장한 영상이 없어요. 마음에 드는 영상을 기록해보세요.';
 export const journalCreatedAt = '{{date}}에 저장됨';
-export const journalTimesCooked = '{{count}}번 만들어봤어요';
+export const journalLastWatched = '마지막 시청: {{date}}';
 export const logbookSectionTitle = '오늘의 요리 로그북';
 export const logbookSectionDescription = '방금 만든 요리나 떠오른 아이디어를 간단히 메모해보세요.';
 export const logbookFormTitleLabel = '제목';
@@ -251,23 +203,21 @@ export const logbookUntitledEntry = '제목 없는 기록';
 export const logbookDeleteButton = '기록 삭제';
 export const logbookRecipeTag = '참고 레시피: {{recipe}}';
 export const logbookNoNotesFallback = '메모가 비어 있어요.';
-export const journalMatchedBadge = '보유 재료 {{count}}개';
-export const journalMissingBadge = '구매 필요 {{count}}개';
 export const journalPreviewMenuLabel = '썸네일 옵션 열기';
 export const journalPreviewRegenerate = '썸네일 다시 만들기';
 export const journalPreviewGenerating = '썸네일을 준비 중이에요...';
 export const journalPreviewError = '썸네일을 불러오지 못했어요.';
 export const journalPreviewRetry = '다시 시도';
-export const journalPreviewAlt = '{{name}} 요리 썸네일';
+export const journalPreviewAlt = '{{name}} 영상 썸네일';
 export const journalPreviewUnsupported = '현재 설정된 Gemini 이미지 모델에서 썸네일 생성을 지원하지 않아요.';
-export const journalNoteLabel = '나만의 메모';
-export const journalNotePlaceholder = '조리 시간, 간 맞추는 요령, 플레이팅 팁 등을 자유롭게 적어보세요.';
-export const journalSaveNote = '메모 저장';
-export const journalOpenDetails = '레시피 · 영상 보기';
-export const journalQuickLogAgain = '오늘도 요리했어요';
-export const journalQuickLogFirst = '오늘 첫 요리 기록';
-export const journalDelete = '기록에서 삭제';
-export const journalLastCooked = '마지막 요리: {{date}}';
+export const journalNoteLabel = '시청 노트';
+export const journalNotePlaceholder = '영상에서 기억하고 싶은 포인트를 적어두세요.';
+export const journalSaveNote = '노트 저장';
+export const journalOpenDetails = '상세 보기';
+export const journalDelete = '기록 삭제';
+export const journalSelectedVideoLabel = '대표 영상';
+export const journalWatchVideo = '영상 열기';
+export const journalNoVideoSaved = '저장된 대표 영상이 없어요.';
 
 export const recipeModalJournalTitle = '이 레시피를 기록장에 저장하기';
 export const recipeModalJournalSubtitle = '다음에 참고할 변형, 양 조절, 만든 횟수를 한곳에 모아두세요.';
@@ -276,20 +226,14 @@ export const recipeModalSaveButtonSaved = '이미 저장됨';
 export const recipeModalSaveNewSuccess = '기록장에 추가했어요!';
 export const recipeModalSaveExisting = '이미 기록장에 있어요';
 
-export const experienceModalHeaderTagline = 'COOKING PLAYBOOK';
+export const experienceModalHeaderTagline = 'VIDEO JOURNAL';
 export const experienceModalClose = '닫기';
-export const experienceModalCookButton = '요리 완료 기록';
-export const experienceModalNutritionAction = '영양 보기 열기';
-export const experienceModalNutritionTitle = '추정 영양 정보';
-export const experienceModalNutritionSubtitle = '감지된 재료 {{count}}개 기준 대략적인 수치';
-export const experienceModalNutritionHint = '재료 1인분을 기준으로 추정한 값이에요. 양에 따라 자유롭게 조절하세요.';
-export const experienceModalIngredientsTitle = '감지된 재료 목록';
-export const experienceModalStepsTitle = '요리 순서';
-export const experienceModalStepsSubtitle = '실제 요리할 때 참고할 요약본이에요.';
-export const experienceModalStepsEmpty = '저장된 조리 단계가 없어요. 상세 레시피 링크를 통해 확인해주세요.';
-export const experienceModalVideosTitle = '함께 저장된 영상';
-export const experienceModalVideosTitleSelected = '저장해 둔 영상: {{title}}';
-export const experienceModalVideosSubtitle = '저장된 영상 링크를 눌러 새 탭에서 바로 재생할 수 있어요.';
-export const experienceModalVideosSubtitleSelected =
-  '{{channel}} 채널의 "{{title}}" 영상을 저장해두었어요. 다시 보고 따라 해보세요.';
-export const experienceModalVideosEmpty = '저장된 영상이 없어요. 레시피 카드의 링크에서 다른 영상을 찾아보세요.';
+export const experienceModalMarkWatched = '시청 완료로 기록';
+export const experienceModalCreatedAt = '저장한 날짜 {{date}}';
+export const experienceModalDescriptionTitle = '메모한 소개';
+export const experienceModalVideosTitleSimple = '저장된 영상 목록';
+export const experienceModalVideosSubtitleSimple = '원하는 영상을 선택하면 새 창에서 재생돼요.';
+export const experienceModalVideosEmpty = '저장된 영상이 없어요.';
+export const experienceModalWatchExternal = '영상 열기';
+export const experienceModalNotesTitle = '시청 노트';
+export const experienceModalNotesEmpty = '아직 남긴 노트가 없어요.';

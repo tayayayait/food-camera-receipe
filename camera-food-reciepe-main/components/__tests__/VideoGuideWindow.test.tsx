@@ -7,10 +7,7 @@ import { renderToString } from 'react-dom/server';
 import VideoGuideWindow from '../VideoGuideWindow';
 import { LanguageProvider } from '../../context/LanguageContext';
 import type { RecipeRecommendation, RecipeVideo } from '../../types';
-import {
-  recipeModalStepByStepCautionTitle,
-  recipeModalStepByStepCautionHint,
-} from '../../locales/ko';
+import { recipeModalVideoTranscriptError, videoGuideWindowHint } from '../../locales/ko';
 
 const baseRecipe: RecipeRecommendation = {
   recipeName: '가이드 레시피',
@@ -33,13 +30,13 @@ const baseVideo: RecipeVideo = {
 };
 
 describe('VideoGuideWindow', () => {
-  it('renders cautionary copy when the transcript fetch fails', () => {
+  it('renders transcript messaging and helper hint when provided', () => {
     const html = renderToString(
       <LanguageProvider>
         <VideoGuideWindow
           recipe={baseRecipe}
           video={baseVideo}
-          instructions={['1. 재료 준비', '2. 조리하기']}
+          instructions={[]}
           missingIngredients={[]}
           transcriptStatus="error"
           transcriptMessageKey="recipeModalVideoTranscriptError"
@@ -50,7 +47,7 @@ describe('VideoGuideWindow', () => {
       </LanguageProvider>
     );
 
-    expect(html).toContain(recipeModalStepByStepCautionTitle);
-    expect(html).toContain(recipeModalStepByStepCautionHint);
+    expect(html).toContain(recipeModalVideoTranscriptError);
+    expect(html).toContain(videoGuideWindowHint);
   });
 });
