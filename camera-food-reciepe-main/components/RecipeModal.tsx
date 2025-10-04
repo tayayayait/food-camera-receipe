@@ -44,7 +44,6 @@ interface RecipeModalProps {
   videoAvailabilityNotice?: string | null;
   onVideoSelect: (recipe: RecipeRecommendation, video: RecipeVideo) => void;
   videoRecipeState: VideoRecipeState;
-  activeVideoGuideRecipeName?: string | null;
   shouldHideRecipeDetails?: boolean;
 }
 
@@ -73,7 +72,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   videoAvailabilityNotice,
   onVideoSelect,
   videoRecipeState,
-  activeVideoGuideRecipeName = null,
   shouldHideRecipeDetails = false,
 }) => {
   const { t } = useLanguage();
@@ -432,7 +430,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                     })
                   : t('recipeModalWatchVideosSubtitleDefault');
                 const recipeForDisplay = activeVideoRecipe ?? recipe;
-                const isGuideActiveForRecipe = activeVideoGuideRecipeName === recipe.recipeName;
                 const shouldShowSelectVideoPrompt =
                   providerVideos.length > 0 && !selectedVideo;
                 const showVideoStatusCard = isVideoTargeted || shouldShowSelectVideoPrompt;
@@ -535,17 +532,19 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                         <p className="text-sm font-semibold text-gray-800">{video.title}</p>
                                         <p className="text-xs text-gray-500">{video.channelTitle}</p>
                                       </div>
-                                      <button
-                                        type="button"
+                                      <a
+                                        href={video.videoUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         onClick={() => onVideoSelect(recipe, video)}
-                                        className={`w-full rounded-lg px-3 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand-blue/40 ${
+                                        className={`w-full rounded-lg px-3 py-2 text-sm font-semibold text-center transition focus:outline-none focus:ring-2 focus:ring-brand-blue/40 ${
                                           isSelected
                                             ? 'bg-brand-blue text-white shadow'
                                             : 'bg-white text-brand-blue hover:bg-brand-blue/10'
                                         }`}
                                       >
                                         {t('recipeModalSelectVideoButton')}
-                                      </button>
+                                      </a>
                                     </div>
                                   </div>
                                 );
@@ -560,10 +559,12 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                   const isSelected = selectedVideo?.id === video.id;
                                   return (
                                     <li key={`${recipe.recipeName}-provider-${video.id}`}>
-                                      <button
-                                        type="button"
+                                      <a
+                                        href={video.videoUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         onClick={() => onVideoSelect(recipe, video)}
-                                        className={`w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                                        className={`block w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
                                           isSelected
                                             ? 'bg-brand-blue text-white shadow'
                                             : 'bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20'
@@ -588,7 +589,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                                         >
                                           {video.title}
                                         </span>
-                                      </button>
+                                      </a>
                                     </li>
                                   );
                                 })}
@@ -645,22 +646,20 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         </section>
                       )}
 
-                      {!isGuideActiveForRecipe && (
-                        <div className="bg-gray-50 rounded-xl p-4">
-                          <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
-                          {ingredientsNeededToDisplay.length === 0 ? (
-                            <p className="mt-2 text-xs italic text-gray-500">{t('recipeModalNoExtraIngredients')}</p>
-                          ) : recipe.isFullyMatched ? (
-                            <p className="mt-2 text-xs font-semibold text-emerald-600">{t('recipeModalAllIngredientsOnHand')}</p>
-                          ) : (
-                            <ul className="mt-3 list-disc list-inside space-y-1 text-xs text-gray-600">
-                              {ingredientsNeededToDisplay.map(ingredient => (
-                                <li key={`needed-${recipe.recipeName}-${ingredient}`}>{ingredient}</li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                      )}
+                      <div className="bg-gray-50 rounded-xl p-4">
+                        <h4 className="text-sm font-semibold text-gray-700">{t('recipeModalNeededIngredients')}</h4>
+                        {ingredientsNeededToDisplay.length === 0 ? (
+                          <p className="mt-2 text-xs italic text-gray-500">{t('recipeModalNoExtraIngredients')}</p>
+                        ) : recipe.isFullyMatched ? (
+                          <p className="mt-2 text-xs font-semibold text-emerald-600">{t('recipeModalAllIngredientsOnHand')}</p>
+                        ) : (
+                          <ul className="mt-3 list-disc list-inside space-y-1 text-xs text-gray-600">
+                            {ingredientsNeededToDisplay.map(ingredient => (
+                              <li key={`needed-${recipe.recipeName}-${ingredient}`}>{ingredient}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
 
                       <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-blue/15 bg-brand-blue/5 px-3 py-2">
                         <p className="text-xs text-brand-blue/70">{t('recipeModalRecipeNutritionHint')}</p>

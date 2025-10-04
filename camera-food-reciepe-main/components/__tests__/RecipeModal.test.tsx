@@ -60,7 +60,6 @@ const baseProps: RecipeModalProps = {
     error: null,
     transcript: { status: 'idle', messageKey: null },
   },
-  activeVideoGuideRecipeName: null,
   shouldHideRecipeDetails: false,
 };
 
@@ -122,7 +121,6 @@ describe('RecipeModal', () => {
           videoAvailabilityNotice={error_youtube_api_key}
           onVideoSelect={() => undefined}
           videoRecipeState={baseProps.videoRecipeState}
-          activeVideoGuideRecipeName={null}
         />
       </LanguageProvider>
     );
@@ -150,16 +148,19 @@ describe('RecipeModal', () => {
     const { container, unmount } = renderModal({ recipes: [recipeWithVideo], onVideoSelect });
 
     try {
-      const selectButton = Array.from(container.querySelectorAll('button')).find(button =>
-        button.textContent?.includes(recipeModalSelectVideoButton)
+      const selectLink = Array.from(container.querySelectorAll('a')).find(anchor =>
+        anchor.textContent?.includes(recipeModalSelectVideoButton) &&
+        anchor.getAttribute('href') === recipeWithVideo.videos[0].videoUrl
       );
-      expect(selectButton).toBeDefined();
+      expect(selectLink).toBeDefined();
 
       await act(async () => {
-        selectButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        selectLink!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
 
       expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
+      expect(selectLink?.getAttribute('target')).toBe('_blank');
+      expect(selectLink?.getAttribute('rel')).toContain('noopener');
     } finally {
       unmount();
     }
@@ -401,13 +402,14 @@ describe('RecipeModal', () => {
     try {
       expect(container.textContent).toContain(recipeModalVideoInstructionsSelectPrompt);
 
-      const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
-        button.textContent?.includes(recipeWithVideo.videos[0].title)
+      const videoLink = Array.from(container.querySelectorAll('a')).find(anchor =>
+        anchor.textContent?.includes(recipeWithVideo.videos[0].title) &&
+        anchor.getAttribute('href') === recipeWithVideo.videos[0].videoUrl
       );
-      expect(videoButton).toBeDefined();
+      expect(videoLink).toBeDefined();
 
       await act(async () => {
-        videoButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        videoLink!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
       });
 
       expect(onVideoSelect).toHaveBeenCalledWith(recipeWithVideo, recipeWithVideo.videos[0]);
