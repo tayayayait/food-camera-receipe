@@ -131,6 +131,17 @@ export async function getRecipeSuggestions(ingredients: string[]): Promise<Recip
     }
 }
 
+export function buildVideoRecipePrompt(metadataLines: string): string {
+    return `You are a culinary assistant that transforms YouTube cooking video context into structured recipes. Use only the provided context from the video to infer the dish name, a short enticing description, ingredients, and clear numbered instructions (at least four steps). Keep the instructions in the exact order they appear in the supplied description or transcript and do not regroup, merge, split, or renumber steps.
+
+Do not invent or assume details beyond the supplied context. If any field cannot be determined, set recipeName and description to "Not specified in video context" and return an array containing "Not specified in video context" for ingredientsNeeded or instructions when necessary.
+
+Context to analyse:
+${metadataLines}
+
+Return only JSON matching the schema.`;
+}
+
 export async function getRecipeFromVideoContext({
     videoId,
     videoTitle,
@@ -154,14 +165,7 @@ export async function getRecipeFromVideoContext({
         .filter((line): line is string => Boolean(line))
         .join('\n\n');
 
-    const prompt = `You are a culinary assistant that transforms YouTube cooking video context into structured recipes. Use only the provided context from the video to infer the dish name, a short enticing description, ingredients, and clear numbered instructions (at least four steps).
-
-Do not invent or assume details beyond the supplied context. If any field cannot be determined, set recipeName and description to "Not specified in video context" and return an array containing "Not specified in video context" for ingredientsNeeded or instructions when necessary.
-
-Context to analyse:
-${metadataLines}
-
-Return only JSON matching the schema.`;
+    const prompt = buildVideoRecipePrompt(metadataLines);
 
     try {
         const response = await ai.models.generateContent({
