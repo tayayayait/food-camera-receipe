@@ -679,15 +679,16 @@ const App: React.FC = () => {
       setIsMoodboardLoading(true);
       setMoodboardImage(null);
       commitDetectedIngredients(sanitizedDetectedIngredients);
+      applyNutritionFrom(sanitizedDetectedIngredients, {
+        alreadySanitized: true,
+        focusView: true,
+        context: { type: 'scan' },
+      });
       setManualIngredientsInput(sanitizedDetectedIngredients.join('\n'));
       setManualInputError(null);
       setSelectedIngredients([]);
       setRecipes([]);
-      setNutritionSummary(null);
-      setNutritionIngredients([]);
-      setNutritionContext(null);
       setRecipeModalOpen(false);
-      setActiveView('pantry');
 
       try {
         const previewResult = await generateDesignPreview(sanitizedDetectedIngredients);
