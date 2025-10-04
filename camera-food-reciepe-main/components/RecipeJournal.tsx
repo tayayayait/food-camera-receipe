@@ -9,6 +9,7 @@ interface RecipeJournalProps {
   onDelete: (id: string) => void;
   onMarkCooked: (id: string) => void;
   onOpenDetails: (id: string) => void;
+  onViewNutrition: (entry: RecipeMemory) => void;
   onRegeneratePreview: (id: string) => void;
   previewStatuses?: Record<string, 'idle' | 'loading' | 'error' | 'unsupported'>;
   highlightedId?: string | null;
@@ -20,6 +21,7 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
   onDelete,
   onMarkCooked,
   onOpenDetails,
+  onViewNutrition,
   onRegeneratePreview,
   previewStatuses,
   highlightedId,
@@ -213,6 +215,9 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
             const lastCookedLabel = entry.lastCookedAt
               ? formatter.format(new Date(entry.lastCookedAt))
               : null;
+            const selectedVideo = entry.selectedVideoId
+              ? entry.videos?.find(video => video.id === entry.selectedVideoId)
+              : undefined;
 
             return (
               <article
@@ -353,6 +358,24 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                       </p>
                     )}
 
+                    {selectedVideo && (
+                      <div className="space-y-2 rounded-2xl border border-brand-blue/25 bg-brand-blue/5 px-4 py-3">
+                        <p className="text-sm font-semibold text-brand-blue">
+                          {t('journalSelectedVideoLabel', { title: selectedVideo.title })}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-3 text-sm">
+                          <a
+                            href={selectedVideo.videoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-xl border border-brand-blue/30 bg-white px-3 py-2 font-semibold text-brand-blue hover:bg-brand-blue/10 transition"
+                          >
+                            {t('journalRewatchVideo')}
+                          </a>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="space-y-3">
                       <label className="text-xs font-semibold text-gray-600 uppercase tracking-widest">
                         {t('journalNoteLabel')}
@@ -375,6 +398,13 @@ const RecipeJournal: React.FC<RecipeJournalProps> = ({
                           {t('journalSaveNote')}
                         </button>
                         <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => onViewNutrition(entry)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-brand-blue/30 text-brand-blue px-4 py-2 text-sm font-semibold hover:bg-brand-blue/10 transition"
+                          >
+                            {t('journalViewNutrition')}
+                          </button>
                           <button
                             type="button"
                             onClick={() => onOpenDetails(entry.id)}

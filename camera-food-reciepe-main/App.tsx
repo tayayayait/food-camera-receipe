@@ -1056,6 +1056,7 @@ const App: React.FC = () => {
               onDelete={handleDeleteRecipeMemory}
               onMarkCooked={handleMarkRecipeCooked}
               onOpenDetails={handleOpenMemoryForCooking}
+              onViewNutrition={handleViewMemoryNutrition}
               onRegeneratePreview={handleRegenerateJournalPreview}
               previewStatuses={journalPreviewStatuses}
               highlightedId={highlightedMemoryId}
@@ -1107,6 +1108,19 @@ const App: React.FC = () => {
   const handleSelectVideoForRecipe = async (recipe: RecipeRecommendation, video: RecipeVideo) => {
     const requestId = `${recipe.recipeName}-${video.id}-${Date.now()}`;
     latestVideoRequestRef.current = requestId;
+
+    const normalizedRecipeName = recipe.recipeName.trim().toLowerCase();
+    setRecipeMemories(current =>
+      current.map(memory =>
+        memory.recipeName.trim().toLowerCase() === normalizedRecipeName
+          ? {
+              ...memory,
+              selectedVideoId: video.id,
+              videos: recipe.videos,
+            }
+          : memory,
+      ),
+    );
 
     setVideoRecipeSelection({ recipeName: recipe.recipeName, video });
     setIsVideoRecipeLoading(true);
