@@ -1176,6 +1176,14 @@ const App: React.FC = () => {
       };
       setVideoRecipe(enrichedRecipe);
       setVideoTranscriptState({ status: transcript.status, messageKey: transcript.messageKey });
+      const appliedIngredients = applyNutritionFrom(enrichedRecipe.ingredientsNeeded, {
+        alreadySanitized: true,
+        focusView: true,
+        context: { type: 'recipe', label: recipe.recipeName },
+      });
+      if (appliedIngredients.length > 0) {
+        setRecipeModalOpen(false);
+      }
       setVideoRecipeSelection(current => {
         if (!current || current.video.id !== video.id) {
           return current;

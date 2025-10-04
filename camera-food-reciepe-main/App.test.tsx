@@ -6,12 +6,42 @@ import { createRoot } from 'react-dom/client';
 
 import App from './App';
 import { LanguageProvider } from './context/LanguageContext';
-import { Category, ItemStatus, type PantryItem } from './types';
+import {
+  Category,
+  ItemStatus,
+  type PantryItem,
+  type Recipe,
+  type RecipeRecommendation,
+  type RecipeVideo,
+} from './types';
+
+const mockGetRecipeSuggestions = vi.fn<[string[]], Promise<Recipe[]>>();
+const mockGenerateInstructionsFromVideo = vi.fn<
+  [RecipeVideo, string[], RecipeRecommendation],
+  Promise<{ steps: string[]; transcript: { status: 'used'; messageKey: 'recipeModalVideoTranscriptUsed' } }>
+>();
+const mockGetRecipeVideos = vi.fn<[string, string[]], Promise<RecipeVideo[]>>();
 
 vi.mock('./components/CameraCapture', () => ({
   __esModule: true,
   default: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div data-testid="camera-capture" /> : null,
+}));
+
+vi.mock('./services/geminiService', () => ({
+  __esModule: true,
+  getRecipeSuggestions: (ingredients: string[]) => mockGetRecipeSuggestions(ingredients),
+  generateInstructionsFromVideo: (
+    video: RecipeVideo,
+    availableIngredients: string[],
+    recipe: RecipeRecommendation,
+  ) => mockGenerateInstructionsFromVideo(video, availableIngredients, recipe),
+}));
+
+vi.mock('./services/videoService', () => ({
+  __esModule: true,
+  getRecipeVideos: (recipeName: string, ingredients: string[]) =>
+    mockGetRecipeVideos(recipeName, ingredients),
 }));
 
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -57,6 +87,15 @@ describe('App intro start behavior', () => {
   beforeEach(() => {
     localStorage.clear();
     document.body.innerHTML = '';
+    mockGetRecipeSuggestions.mockReset();
+    mockGenerateInstructionsFromVideo.mockReset();
+    mockGetRecipeVideos.mockReset();
+    mockGetRecipeSuggestions.mockResolvedValue([]);
+    mockGetRecipeVideos.mockResolvedValue([]);
+    mockGenerateInstructionsFromVideo.mockResolvedValue({
+      steps: ['1. 준비'],
+      transcript: { status: 'used', messageKey: 'recipeModalVideoTranscriptUsed' },
+    });
   });
 
   it('opens the camera when starting with an empty pantry', async () => {
@@ -94,6 +133,120 @@ describe('App intro start behavior', () => {
 
       expect(container.querySelector('[data-testid="camera-capture"]')).toBeNull();
       expect(container.textContent).toContain('카메라가 인식한 재료 목록');
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('handleSelectVideoForRecipe', () => {
+  const flushPromises = async (count = 1) => {
+    for (let index = 0; index < count; index += 1) {
+      await act(async () => {
+        await Promise.resolve();
+      });
+    }
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    document.body.innerHTML = '';
+    mockGetRecipeSuggestions.mockReset();
+    mockGenerateInstructionsFromVideo.mockReset();
+    mockGetRecipeVideos.mockReset();
+  });
+
+  it('applies nutrition and focuses the nutrition view after selecting a video', async () => {
+    const storedItems: PantryItem[] = [
+      {
+        id: 'item-1',
+        name: '닭가슴살',
+        category: Category.Meat,
+        acquiredAt: new Date().toISOString(),
+        status: ItemStatus.Active,
+      },
+      {
+        id: 'item-2',
+        name: '마늘',
+        category: Category.Vegetable,
+        acquiredAt: new Date().toISOString(),
+        status: ItemStatus.Active,
+      },
+    ];
+    localStorage.setItem('pantryItems', JSON.stringify(storedItems));
+
+    const suggestion: Recipe = {
+      recipeName: '갈릭 치킨 파스타',
+      description: '테스트 레시피',
+      ingredientsNeeded: ['스파게티', '올리브 오일', '마늘'],
+      instructions: ['1. 준비', '2. 조리'],
+    };
+    const video: RecipeVideo = {
+      id: 'video-1',
+      title: 'Test Video',
+      channelTitle: 'Test Channel',
+      thumbnailUrl: 'https://example.com/thumb.jpg',
+      videoUrl: 'https://example.com/video',
+      transcriptStatus: 'available',
+    };
+
+    mockGetRecipeSuggestions.mockResolvedValue([suggestion]);
+    mockGetRecipeVideos.mockResolvedValue([video]);
+    mockGenerateInstructionsFromVideo.mockResolvedValue({
+      steps: ['1. 재료 손질', '2. 볶기'],
+      transcript: { status: 'used', messageKey: 'recipeModalVideoTranscriptUsed' },
+    });
+
+    const { container, cleanup } = await renderApp();
+
+    try {
+      await clickStartButton(container);
+
+      const ideasButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes('아이디어')
+      );
+      expect(ideasButton).toBeDefined();
+      await act(async () => {
+        ideasButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      await flushPromises(4);
+
+      expect(mockGetRecipeSuggestions).toHaveBeenCalledOnce();
+      expect(mockGetRecipeVideos).toHaveBeenCalledOnce();
+
+      let videoSelectButton = Array.from(container.querySelectorAll('button, a')).find(element =>
+        element.textContent?.includes('영상 선택')
+      ) as HTMLButtonElement | HTMLAnchorElement | undefined;
+      for (let attempt = 0; attempt < 6 && !videoSelectButton; attempt += 1) {
+        await flushPromises(1);
+        videoSelectButton = Array.from(container.querySelectorAll('button, a')).find(element =>
+          element.textContent?.includes('영상 선택')
+        ) as HTMLButtonElement | HTMLAnchorElement | undefined;
+      }
+      expect(videoSelectButton).toBeDefined();
+
+      await act(async () => {
+        videoSelectButton!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      });
+
+      await flushPromises(4);
+
+      expect(mockGenerateInstructionsFromVideo).toHaveBeenCalledOnce();
+      expect(mockGenerateInstructionsFromVideo).toHaveBeenCalledWith(
+        video,
+        expect.any(Array),
+        expect.objectContaining({ recipeName: suggestion.recipeName })
+      );
+
+      expect(container.textContent).toContain('예상 영양 구성');
+      expect(container.textContent).toContain('갈릭 치킨 파스타');
+      expect(container.textContent).not.toContain('맞춤 레시피 추천');
+
+      const nutritionToolbarButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes('영양 요약')
+      );
+      expect(nutritionToolbarButton?.getAttribute('aria-pressed')).toBe('true');
     } finally {
       cleanup();
     }
