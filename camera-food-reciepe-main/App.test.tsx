@@ -8,13 +8,66 @@ import App from './App';
 import { LanguageProvider } from './context/LanguageContext';
 import { Category, ItemStatus, type PantryItem } from './types';
 
-vi.mock('./components/CameraCapture', () => ({
-  __esModule: true,
-  default: ({ isOpen }: { isOpen: boolean }) =>
-    isOpen ? <div data-testid="camera-capture" /> : null,
+const cameraCaptureHandler: {
+  current: ((photo: Blob) => Promise<void>) | null;
+} = { current: null };
+
+const { analyzeIngredientsFromImageMock, generateDesignPreviewMock } = vi.hoisted(() => ({
+  analyzeIngredientsFromImageMock: vi.fn<
+    (photo: Blob) => Promise<string[]>
+  >(),
+  generateDesignPreviewMock: vi.fn<
+    (ingredients: string[]) =>
+      Promise<{
+        status: 'success' | 'unsupported';
+        dataUrl: string;
+        model: string | null;
+        attemptedModels: string[];
+      }>
+  >(),
 }));
 
+vi.mock('./components/CameraCapture', () => ({
+  __esModule: true,
+  default: ({ isOpen, onCapture }: { isOpen: boolean; onCapture: (photo: Blob) => Promise<void> }) => {
+    cameraCaptureHandler.current = onCapture;
+    return isOpen ? <div data-testid="camera-capture" /> : null;
+  },
+}));
+
+vi.mock('./services/visionService', () => ({
+  __esModule: true,
+  analyzeIngredientsFromImage: analyzeIngredientsFromImageMock,
+}));
+
+vi.mock('./services/designPreviewService', () => ({
+  __esModule: true,
+  generateDesignPreview: generateDesignPreviewMock,
+  generateJournalPreviewImage: vi.fn(),
+}));
+
+const triggerCameraCapture = async (photo: Blob) => {
+  expect(cameraCaptureHandler.current).toBeTruthy();
+  await act(async () => {
+    await cameraCaptureHandler.current?.(photo);
+  });
+};
+
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+beforeEach(() => {
+  localStorage.clear();
+  document.body.innerHTML = '';
+  cameraCaptureHandler.current = null;
+  analyzeIngredientsFromImageMock.mockReset();
+  generateDesignPreviewMock.mockReset();
+  generateDesignPreviewMock.mockResolvedValue({
+    status: 'success',
+    dataUrl: 'data:image/png;base64,mock-preview',
+    model: 'mock-model',
+    attemptedModels: ['mock-model'],
+  });
+});
 
 const renderApp = async () => {
   const container = document.createElement('div');
@@ -54,11 +107,6 @@ const clickStartButton = async (container: HTMLElement) => {
 };
 
 describe('App intro start behavior', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    document.body.innerHTML = '';
-  });
-
   it('opens the camera when starting with an empty pantry', async () => {
     localStorage.setItem('pantryItems', JSON.stringify([]));
 
@@ -94,6 +142,33 @@ describe('App intro start behavior', () => {
 
       expect(container.querySelector('[data-testid="camera-capture"]')).toBeNull();
       expect(container.textContent).toContain('카메라가 인식한 재료 목록');
+    } finally {
+      cleanup();
+    }
+  });
+});
+
+describe('App scan nutrition flow', () => {
+  it('applies nutrition summary and focuses the nutrition view after a scan', async () => {
+    localStorage.setItem('pantryItems', JSON.stringify([]));
+    analyzeIngredientsFromImageMock.mockResolvedValue(['사과', 'Banana']);
+
+    const { container, cleanup } = await renderApp();
+
+    try {
+      await clickStartButton(container);
+      expect(container.querySelector('[data-testid="camera-capture"]')).not.toBeNull();
+
+      await triggerCameraCapture(new Blob(['fake-image'], { type: 'image/png' }));
+
+      expect(analyzeIngredientsFromImageMock).toHaveBeenCalledTimes(1);
+      expect(container.textContent).toContain('예상 영양 구성');
+      expect(container.textContent).toContain('최근 인식된 재료를 기준으로 계산했어요.');
+
+      const nutritionButton = Array.from(container.querySelectorAll('button')).find(button =>
+        button.textContent?.includes('영양')
+      );
+      expect(nutritionButton?.getAttribute('aria-pressed')).toBe('true');
     } finally {
       cleanup();
     }
