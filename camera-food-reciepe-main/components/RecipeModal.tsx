@@ -211,18 +211,31 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4" onClick={onClose}>
       <div className="bg-gray-50 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
         <div className="p-6 md:p-8 border-b border-gray-200 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-brand-orange/10 text-brand-orange">
-              <UtensilsIcon />
+          <div className="flex items-start justify-between gap-4 sm:items-center">
+            <div className="flex flex-1 items-center gap-3 min-w-0">
+              <div className="p-2 rounded-full bg-brand-orange/10 text-brand-orange">
+                <UtensilsIcon />
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-2xl font-bold text-gray-800 truncate">{t('recipeModalTitle')}</h2>
+                {ingredients.length > 0 ? (
+                  <p className="text-sm text-gray-500 truncate">
+                    {t('recipeModalBasedOn')} {ingredients.join(', ')}
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-500 truncate">{t('recipeModalAddMore')}</p>
+                )}
+              </div>
             </div>
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">{t('recipeModalTitle')}</h2>
-              {ingredients.length > 0 ? (
-                <p className="text-sm text-gray-500">{t('recipeModalBasedOn')} {ingredients.join(', ')}</p>
-              ) : (
-                <p className="text-sm text-gray-500">{t('recipeModalAddMore')}</p>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-blue focus-visible:ring-offset-2 focus-visible:ring-offset-white"
+              aria-label={t('recipeModalClose')}
+            >
+              <span aria-hidden="true" className="text-xl font-semibold">×</span>
+              <span className="sr-only">{t('recipeModalClose')}</span>
+            </button>
           </div>
         </div>
 
