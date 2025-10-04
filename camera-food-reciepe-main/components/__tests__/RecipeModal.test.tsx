@@ -15,10 +15,6 @@ import {
   recipeModalVideoInstructionsLoading,
   recipeModalVideoInstructionsError,
   recipeModalVideoInstructionsSelectPrompt,
-  recipeModalStepByStepTitle,
-  recipeModalStepByStepCautionTitle,
-  recipeModalStepByStepCautionSubtitle,
-  recipeModalStepByStepCautionHint,
   recipeModalGuidanceTitle,
   recipeModalGuidanceCardScanTitle,
 } from '../../locales/ko';
@@ -29,7 +25,6 @@ const baseRecipe: RecipeRecommendation = {
   recipeName: '테스트 레시피',
   description: '설명',
   ingredientsNeeded: [],
-  instructions: ['단계 1', '단계 2'],
   videos: [],
   missingIngredients: ['양파'],
   matchedIngredients: ['마늘'],
@@ -59,7 +54,6 @@ const baseProps: RecipeModalProps = {
     targetRecipeName: null,
     isLoading: false,
     error: null,
-    transcript: { status: 'idle', messageKey: null },
   },
   activeVideoGuideRecipeName: null,
   shouldHideRecipeDetails: false,
@@ -134,7 +128,6 @@ describe('RecipeModal', () => {
   it('invokes onVideoSelect when a video card is clicked', async () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
-      instructions: ['기존 단계 1', '기존 단계 2'],
       videos: [
         {
           id: 'video-1',
@@ -169,7 +162,6 @@ describe('RecipeModal', () => {
   it('shows a loading state for the targeted video recipe', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
-      instructions: ['기존 단계 1'],
       videos: [
         {
           id: 'video-1',
@@ -201,52 +193,9 @@ describe('RecipeModal', () => {
     }
   });
 
-  it('renders video-aligned instructions when available', () => {
+  it('shows an error state when video guidance fails to load', () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
-      instructions: ['기존 단계 1'],
-      videos: [
-        {
-          id: 'video-1',
-          title: 'Success Video',
-          channelTitle: 'Channel',
-          thumbnailUrl: 'thumb.jpg',
-          videoUrl: 'https://example.com/video',
-          transcriptStatus: 'unknown',
-        },
-      ],
-    };
-
-    const enrichedRecipe: RecipeRecommendation = {
-      ...recipeWithVideo,
-      instructions: ['1. 새 단계 준비', '2. 다음 단계 이어가기'],
-    };
-
-    const { container, unmount } = renderModal({
-      recipes: [recipeWithVideo],
-      videoRecipeState: {
-        recipe: enrichedRecipe,
-        selectedVideo: recipeWithVideo.videos[0],
-        targetRecipeName: recipeWithVideo.recipeName,
-        isLoading: false,
-        error: null,
-        transcript: { status: 'used', messageKey: null },
-      },
-    });
-
-    try {
-      expect(container.textContent).toContain('새 단계 준비');
-      expect(container.textContent).toContain('다음 단계 이어가기');
-      expect(container.textContent).not.toContain('기존 단계 1');
-    } finally {
-      unmount();
-    }
-  });
-
-  it('shows an error state when video-aligned instructions fail', () => {
-    const recipeWithVideo: RecipeRecommendation = {
-      ...baseRecipe,
-      instructions: ['기존 단계 1'],
       videos: [
         {
           id: 'video-1',
@@ -267,59 +216,11 @@ describe('RecipeModal', () => {
         targetRecipeName: recipeWithVideo.recipeName,
         isLoading: false,
         error: recipeModalVideoInstructionsError,
-        transcript: { status: 'error', messageKey: null },
       },
     });
 
     try {
       expect(container.textContent).toContain(recipeModalVideoInstructionsError);
-    } finally {
-      unmount();
-    }
-  });
-
-  it('shows cautionary messaging when the transcript is missing', () => {
-    const recipeWithVideo: RecipeRecommendation = {
-      ...baseRecipe,
-      instructions: ['기존 단계 1'],
-      videos: [
-        {
-          id: 'video-1',
-          title: 'Missing Transcript Video',
-          channelTitle: 'Channel',
-          thumbnailUrl: 'thumb.jpg',
-          videoUrl: 'https://example.com/video',
-          transcriptStatus: 'unknown',
-        },
-      ],
-    };
-
-    const enrichedRecipe: RecipeRecommendation = {
-      ...recipeWithVideo,
-      instructions: ['1. 주재료 손질', '2. 마무리 정리'],
-    };
-
-    const { container, unmount } = renderModal({
-      recipes: [recipeWithVideo],
-      videoRecipeState: {
-        recipe: enrichedRecipe,
-        selectedVideo: recipeWithVideo.videos[0],
-        targetRecipeName: recipeWithVideo.recipeName,
-        isLoading: false,
-        error: null,
-        transcript: {
-          status: 'missing',
-          messageKey: 'recipeModalVideoTranscriptUnavailable',
-        },
-      },
-    });
-
-    try {
-      const textContent = container.textContent ?? '';
-      expect(textContent).toContain(recipeModalStepByStepCautionTitle);
-      expect(textContent).toContain(recipeModalStepByStepCautionSubtitle);
-      expect(textContent).toContain(recipeModalStepByStepCautionHint);
-      expect(textContent).not.toContain(recipeModalStepByStepTitle);
     } finally {
       unmount();
     }
@@ -341,7 +242,7 @@ describe('RecipeModal', () => {
     }
   });
 
-  it('hides the step-by-step section until a video is selected and instructions arrive', async () => {
+  it('updates the video guidance prompt after a video is selected', async () => {
     const recipeWithVideo: RecipeRecommendation = {
       ...baseRecipe,
       videos: [
@@ -364,7 +265,6 @@ describe('RecipeModal', () => {
 
     try {
       expect(container.textContent).toContain(recipeModalVideoInstructionsSelectPrompt);
-      expect(container.textContent).not.toContain(recipeModalStepByStepTitle);
 
       const videoButton = Array.from(container.querySelectorAll('button')).find(button =>
         button.textContent?.includes(recipeWithVideo.videos[0].title)
@@ -379,22 +279,17 @@ describe('RecipeModal', () => {
 
       rerender({
         videoRecipeState: {
-          recipe: {
-            ...recipeWithVideo,
-            instructions: ['1. 준비하기', '2. 마무리하기'],
-          },
+          recipe: recipeWithVideo,
           selectedVideo: recipeWithVideo.videos[0],
           targetRecipeName: recipeWithVideo.recipeName,
           isLoading: false,
           error: null,
-          transcript: { status: 'used', messageKey: null },
         },
       });
 
       expect(container.textContent).not.toContain(recipeModalVideoInstructionsSelectPrompt);
-      expect(container.textContent).toContain('준비하기');
-      expect(container.textContent).toContain('마무리하기');
-      expect(container.textContent).toContain(recipeModalStepByStepTitle);
+      expect(container.textContent).toContain(recipeWithVideo.videos[0].title);
+      expect(container.textContent).toContain(recipeWithVideo.videos[0].channelTitle);
     } finally {
       unmount();
     }

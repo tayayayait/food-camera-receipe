@@ -25,7 +25,6 @@ const RecipeExperienceModal: React.FC<RecipeExperienceModalProps> = ({ entry, on
     return fallback;
   }, [entry.ingredients, entry.matchedIngredients, entry.missingIngredients]);
 
-  const instructions = entry.instructions ?? [];
   const videos = entry.videos ?? [];
   const selectedVideoId = entry.selectedVideoId ?? null;
   const selectedVideo = useMemo(
@@ -175,25 +174,7 @@ const RecipeExperienceModal: React.FC<RecipeExperienceModalProps> = ({ entry, on
               </h3>
               <p className="text-xs text-gray-500">{t('experienceModalStepsSubtitle')}</p>
             </div>
-            {instructions.length > 0 ? (
-              <div className="grid gap-3 md:grid-cols-2">
-                {instructions.map((instruction, index) => {
-                  const text = instruction.trim();
-                  return (
-                    <div key={`${entry.id}-step-${index}`} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-2 shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-orange text-white text-sm font-semibold">
-                          {index + 1}
-                        </span>
-                        <p className="text-sm font-semibold text-gray-800">{text}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">{t('experienceModalStepsEmpty')}</p>
-            )}
+            <p className="text-sm text-gray-500">{t('experienceModalStepsEmpty')}</p>
           </section>
 
           <section className="space-y-4">

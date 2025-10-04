@@ -152,7 +152,6 @@ const spoonacularProvider: RecipeProviderDefinition = {
     const url = new URL('https://api.spoonacular.com/recipes/complexSearch');
     url.searchParams.set('query', recipeName);
     url.searchParams.set('number', '1');
-    url.searchParams.set('instructionsRequired', 'true');
     url.searchParams.set('addRecipeInformation', 'true');
 
     if (ingredients.length > 0) {

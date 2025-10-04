@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import type {
   PantryItem,
@@ -21,11 +21,7 @@ import NutritionSummaryCard from './components/NutritionSummaryCard';
 import BottomToolbar from './components/BottomToolbar';
 import RecipeExperienceModal from './components/RecipeExperienceModal';
 import VideoGuideWindow from './components/VideoGuideWindow';
-import {
-  getRecipeSuggestions,
-  generateInstructionsFromVideo,
-} from './services/geminiService';
-import type { TranscriptPromptStatus } from './services/geminiService';
+import { getRecipeSuggestions } from './services/geminiService';
 import { generateDesignPreview, generateJournalPreviewImage } from './services/designPreviewService';
 import { analyzeIngredientsFromImage } from './services/visionService';
 import { getRecipeVideos } from './services/videoService';
@@ -43,12 +39,7 @@ type VideoGuideState = {
   isOpen: boolean;
   recipe: RecipeRecommendation | null;
   video: RecipeVideo | null;
-  instructions: string[];
   missingIngredients: string[];
-  transcriptStatus: TranscriptPromptStatus['status'] | 'idle' | 'loading';
-  transcriptMessageKey: string | null;
-  isLoading: boolean;
-  error: string | null;
 };
 
 interface IntroScreenProps {
@@ -181,22 +172,12 @@ const App: React.FC = () => {
     recipeName: string;
     video: RecipeVideo;
   } | null>(null);
-  const [videoTranscriptState, setVideoTranscriptState] = useState<{
-    status: 'idle' | 'loading' | TranscriptPromptStatus['status'];
-    messageKey: string | null;
-  }>({ status: 'idle', messageKey: null });
   const [videoGuideState, setVideoGuideState] = useState<VideoGuideState>({
     isOpen: false,
     recipe: null,
     video: null,
-    instructions: [],
     missingIngredients: [],
-    transcriptStatus: 'idle',
-    transcriptMessageKey: null,
-    isLoading: false,
-    error: null,
   });
-  const latestVideoRequestRef = useRef<string | null>(null);
 
   const translateError = (messageKey: string) => {
     const translated = t(messageKey as any);
@@ -385,15 +366,8 @@ const App: React.FC = () => {
     );
 
     if (existing) {
-      const existingInstructions = existing.instructions ?? [];
-      const newInstructions = recipe.instructions ?? [];
-      const instructionsChanged =
-        newInstructions.length > 0 &&
-        (existingInstructions.length !== newInstructions.length ||
-          existingInstructions.some((step, index) => step !== newInstructions[index]));
-      const needsEnrichment =
-        !existing.ingredients?.length || !existing.instructions?.length || !existing.videos?.length;
-      if (needsEnrichment || instructionsChanged || existing.selectedVideoId !== normalizedSelectedVideoId) {
+      const needsEnrichment = !existing.ingredients?.length || !existing.videos?.length;
+      if (needsEnrichment || existing.selectedVideoId !== normalizedSelectedVideoId) {
         setRecipeMemories(current =>
           current.map(memory =>
             memory.id === existing.id
@@ -401,9 +375,6 @@ const App: React.FC = () => {
                   ...memory,
                   ...(existing.selectedVideoId !== normalizedSelectedVideoId
                     ? { selectedVideoId: normalizedSelectedVideoId }
-                    : {}),
-                  ...((needsEnrichment || instructionsChanged)
-                    ? { instructions: recipe.instructions }
                     : {}),
                   ...(needsEnrichment && !existing.ingredients?.length
                     ? { ingredients: recipe.ingredientsNeeded }
@@ -432,7 +403,6 @@ const App: React.FC = () => {
       lastCookedAt: null,
       timesCooked: 0,
       ingredients: recipe.ingredientsNeeded,
-      instructions: recipe.instructions,
       videos: recipe.videos,
       selectedVideoId: normalizedSelectedVideoId,
       journalPreviewImage: null,
@@ -825,7 +795,6 @@ const App: React.FC = () => {
     setVideoRecipeSelection(null);
     setVideoRecipeError(null);
     setIsVideoRecipeLoading(false);
-    setVideoTranscriptState({ status: 'idle', messageKey: null });
   };
 
   const videoRecipeState = useMemo(
@@ -835,14 +804,12 @@ const App: React.FC = () => {
       targetRecipeName: videoRecipeSelection?.recipeName ?? videoRecipe?.recipeName ?? null,
       isLoading: isVideoRecipeLoading,
       error: videoRecipeError,
-      transcript: videoTranscriptState,
     }),
     [
       videoRecipe,
       videoRecipeSelection,
       isVideoRecipeLoading,
       videoRecipeError,
-      videoTranscriptState,
     ]
   );
 
@@ -1138,146 +1105,17 @@ const App: React.FC = () => {
     },
   ];
 
-  const handleSelectVideoForRecipe = async (recipe: RecipeRecommendation, video: RecipeVideo) => {
-    const requestId = `${recipe.recipeName}-${video.id}-${Date.now()}`;
-    latestVideoRequestRef.current = requestId;
-
+  const handleSelectVideoForRecipe = (recipe: RecipeRecommendation, video: RecipeVideo) => {
     setVideoRecipeSelection({ recipeName: recipe.recipeName, video });
-    setIsVideoRecipeLoading(true);
-    setVideoRecipe(null);
+    setVideoRecipe(recipe);
     setVideoRecipeError(null);
-    setVideoTranscriptState({ status: 'loading', messageKey: 'recipeModalVideoTranscriptLoading' });
+    setIsVideoRecipeLoading(false);
     setVideoGuideState({
       isOpen: true,
       recipe,
       video,
-      instructions: [],
       missingIngredients: recipe.missingIngredients,
-      transcriptStatus: 'loading',
-      transcriptMessageKey: 'recipeModalVideoTranscriptLoading',
-      isLoading: true,
-      error: null,
     });
-
-    try {
-      const result = await generateInstructionsFromVideo(video, selectedIngredients, recipe);
-      const { steps, transcript } = result;
-      if (latestVideoRequestRef.current !== requestId) {
-        return;
-      }
-      const sanitizedInstructions = steps.map(step => step.trim()).filter(Boolean);
-      const normalizedInstructions = new Set(
-        sanitizedInstructions.map(step =>
-          step
-            .toLowerCase()
-            .replace(/^[0-9]+[\).\-\s]*/, '')
-            .replace(/\s+/g, ' ')
-            .trim(),
-        ),
-      );
-      const placeholderPhrases = [
-        'no instructions',
-        'instruction unavailable',
-        'placeholder',
-        'coming soon',
-        '준비중',
-        '업데이트 예정',
-        '내용 없음',
-      ];
-      const hasPlaceholderPhrase = sanitizedInstructions.some(step => {
-        const lowered = step.toLowerCase();
-        return placeholderPhrases.some(phrase => lowered.includes(phrase));
-      });
-      const hasMeaningfulInstructions =
-        sanitizedInstructions.length > 0 &&
-        !hasPlaceholderPhrase &&
-        (normalizedInstructions.size > 1 ||
-          sanitizedInstructions.some(step =>
-            step
-              .replace(/^[0-9]+[\).\-\s]*/, '')
-              .trim()
-              .length >= 30,
-          ));
-
-      if (!hasMeaningfulInstructions && sanitizedInstructions.length > 0) {
-        console.warn('Discarded low quality analyzed video instructions', {
-          recipeName: recipe.recipeName,
-          videoId: video.id,
-          sanitizedInstructions,
-        });
-        setError(prev => prev ?? t('videoInstructionDiscardedWarning'));
-        setErrorKey(prev => prev ?? 'videoInstructionDiscardedWarning');
-      }
-
-      const instructionsToUse =
-        hasMeaningfulInstructions && sanitizedInstructions.length > 0
-          ? sanitizedInstructions
-          : recipe.instructions;
-      const enrichedRecipe: RecipeRecommendation = {
-        ...recipe,
-        instructions: instructionsToUse,
-        videos: recipe.videos,
-        ingredientsNeeded: recipe.ingredientsNeeded,
-      };
-      setVideoRecipe(enrichedRecipe);
-      setVideoTranscriptState({ status: transcript.status, messageKey: transcript.messageKey });
-      setVideoGuideState({
-        isOpen: true,
-        recipe: enrichedRecipe,
-        video,
-        instructions: instructionsToUse.length > 0 ? instructionsToUse : recipe.instructions ?? [],
-        missingIngredients: enrichedRecipe.missingIngredients ?? recipe.missingIngredients,
-        transcriptStatus: transcript.status,
-        transcriptMessageKey: transcript.messageKey,
-        isLoading: false,
-        error: null,
-      });
-      setVideoRecipeSelection(current => {
-        if (!current || current.video.id !== video.id) {
-          return current;
-        }
-        const nextStatus: RecipeVideo['transcriptStatus'] =
-          transcript.status === 'used'
-            ? 'available'
-            : transcript.status === 'autoGenerated'
-              ? 'autoGenerated'
-              : transcript.status === 'missing'
-                ? 'unavailable'
-                : transcript.status === 'error'
-                  ? 'error'
-                  : current.video.transcriptStatus;
-        return {
-          ...current,
-          video: { ...current.video, transcriptStatus: nextStatus },
-        };
-      });
-    } catch (error) {
-      if (latestVideoRequestRef.current !== requestId) {
-        return;
-      }
-      const messageKey = error instanceof Error ? error.message : 'errorUnknown';
-      setVideoRecipeError(translateError(messageKey));
-      setVideoTranscriptState({ status: 'error', messageKey: 'recipeModalVideoTranscriptError' });
-      setVideoGuideState({
-        isOpen: true,
-        recipe,
-        video,
-        instructions: [],
-        missingIngredients: recipe.missingIngredients,
-        transcriptStatus: 'error',
-        transcriptMessageKey: 'recipeModalVideoTranscriptError',
-        isLoading: false,
-        error: translateError(messageKey),
-      });
-    } finally {
-      if (latestVideoRequestRef.current === requestId) {
-        setIsVideoRecipeLoading(false);
-        latestVideoRequestRef.current = null;
-        setVideoTranscriptState(current =>
-          current.status === 'loading' ? { status: 'idle', messageKey: null } : current
-        );
-      }
-    }
   };
 
   const handleCloseVideoGuide = () => {
@@ -1285,12 +1123,7 @@ const App: React.FC = () => {
       isOpen: false,
       recipe: null,
       video: null,
-      instructions: [],
       missingIngredients: [],
-      transcriptStatus: 'idle',
-      transcriptMessageKey: null,
-      isLoading: false,
-      error: null,
     });
   };
 
@@ -1356,12 +1189,7 @@ const App: React.FC = () => {
         <VideoGuideWindow
           recipe={videoGuideState.recipe}
           video={videoGuideState.video}
-          instructions={videoGuideState.instructions}
           missingIngredients={videoGuideState.missingIngredients}
-          transcriptStatus={videoGuideState.transcriptStatus}
-          transcriptMessageKey={videoGuideState.transcriptMessageKey}
-          isLoading={videoGuideState.isLoading}
-          error={videoGuideState.error}
           onClose={handleCloseVideoGuide}
         />
       )}

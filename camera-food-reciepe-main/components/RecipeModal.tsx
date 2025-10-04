@@ -5,56 +5,10 @@ import type {
   NutritionContext,
   RecipeVideo,
 } from '../types';
-import type { TranscriptPromptStatus } from '../services/geminiService';
 import { UtensilsIcon, PulseIcon, CameraIcon, SparklesIcon, BookOpenIcon } from './icons';
 import { useLanguage } from '../context/LanguageContext';
 import { formatMacro } from '../services/nutritionService';
 import { parseIngredientInput } from '../services/ingredientParser';
-
-const extractStepSummary = (instruction: string) => {
-  const cleaned = instruction.trim();
-  if (!cleaned) {
-    return { summary: '', details: '' };
-  }
-
-  const prioritySeparators = [':', ' - ', ' – ', ' — '];
-  for (const separator of prioritySeparators) {
-    const index = cleaned.indexOf(separator);
-    if (index > 0) {
-      const summary = cleaned.slice(0, index).trim();
-      const details = cleaned.slice(index + separator.length).trim();
-      if (summary) {
-        return { summary, details };
-      }
-    }
-  }
-
-  const sentenceMatch = cleaned.match(/^(.*?[.!?])\s+(.*)$/);
-  if (sentenceMatch) {
-    const [, firstSentence, rest] = sentenceMatch;
-    return {
-      summary: firstSentence.trim(),
-      details: rest.trim(),
-    };
-  }
-
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  if (words.length > 8) {
-    const summary = words.slice(0, 6).join(' ');
-    const details = words.slice(6).join(' ');
-    return {
-      summary: `${summary}…`,
-      details,
-    };
-  }
-
-  return { summary: cleaned, details: '' };
-};
-
-type TranscriptUiState = {
-  status: 'idle' | 'loading' | TranscriptPromptStatus['status'];
-  messageKey: string | null;
-};
 
 type VideoRecipeState = {
   recipe: RecipeRecommendation | null;
@@ -62,7 +16,6 @@ type VideoRecipeState = {
   targetRecipeName: string | null;
   isLoading: boolean;
   error: string | null;
-  transcript: TranscriptUiState;
 };
 
 interface RecipeModalProps {
@@ -125,13 +78,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
   const [ingredientsEditorError, setIngredientsEditorError] = useState<string | null>(null);
   const [isApplyingIngredientEdits, setIsApplyingIngredientEdits] = useState(false);
   const [ingredientUpdateFeedback, setIngredientUpdateFeedback] = useState<string | null>(null);
-
-  const transcriptState = videoRecipeState.transcript;
-  const transcriptMessage = transcriptState.messageKey
-    ? t(transcriptState.messageKey as any)
-    : null;
-  const isTranscriptWarning =
-    transcriptState.status === 'missing' || transcriptState.status === 'error';
 
   useEffect(() => {
     if (!isOpen) {
@@ -459,11 +405,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                 const providerVideos =
                   activeVideoRecipe?.videos?.length ? activeVideoRecipe.videos : recipe.videos;
                 const hasSelectedVideo = Boolean(selectedVideo);
-                const videoAlignedInstructions = activeVideoRecipe?.instructions ?? [];
-                const instructionsToDisplay =
-                  hasSelectedVideo && videoAlignedInstructions.length > 0
-                    ? videoAlignedInstructions
-                    : [];
                 const ingredientsNeededToDisplay =
                   activeVideoRecipe?.ingredientsNeeded?.length
                     ? activeVideoRecipe.ingredientsNeeded
@@ -481,7 +422,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                   : t('recipeModalWatchVideosSubtitleDefault');
                 const recipeForDisplay = activeVideoRecipe ?? recipe;
                 const isGuideActiveForRecipe = activeVideoGuideRecipeName === recipe.recipeName;
-                const shouldRenderInstructions = !isGuideActiveForRecipe && instructionsToDisplay.length > 0;
                 const shouldShowSelectVideoPrompt =
                   providerVideos.length > 0 && !selectedVideo;
                 const showVideoStatusCard = isVideoTargeted || shouldShowSelectVideoPrompt;
@@ -632,13 +572,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         <section className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-4">
                           {videoRecipeState.error ? (
                             <p className="text-sm font-semibold text-red-600">{videoRecipeState.error}</p>
-                          ) : transcriptState.status === 'loading' ? (
-                            <div className="flex items-center gap-2 text-brand-blue">
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
-                              <span className="text-sm font-semibold">
-                                {transcriptMessage ?? t('recipeModalVideoTranscriptLoading')}
-                              </span>
-                            </div>
                           ) : videoRecipeState.isLoading ? (
                             <div className="flex items-center gap-2 text-brand-blue">
                               <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand-blue/30 border-t-transparent" />
@@ -651,23 +584,7 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                               {t('recipeModalVideoInstructionsSelectPrompt')}
                             </p>
                           ) : (
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-brand-blue">{videoSectionSubtitle}</p>
-                              <p className="text-xs text-brand-blue/70">{t('recipeModalStepByStepHint')}</p>
-                              {transcriptMessage && transcriptState.status !== 'idle' && (
-                                <p
-                                  className={`text-[11px] font-medium ${
-                                    transcriptState.status === 'error'
-                                      ? 'text-red-600'
-                                      : transcriptState.status === 'missing'
-                                        ? 'text-brand-blue'
-                                        : 'text-brand-blue/60'
-                                  }`}
-                                >
-                                  {transcriptMessage}
-                                </p>
-                              )}
-                            </div>
+                            <p className="text-sm font-semibold text-brand-blue">{videoSectionSubtitle}</p>
                           )}
                         </section>
                       )}
@@ -729,62 +646,6 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                         </button>
                       </div>
 
-                      {shouldRenderInstructions && (
-                        <div className="rounded-2xl border border-brand-orange/30 bg-gradient-to-br from-brand-orange/5 via-white to-brand-orange/10 p-5 shadow-sm">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p
-                                className={`text-sm font-semibold ${
-                                  isTranscriptWarning ? 'text-red-600' : 'text-brand-orange'
-                                }`}
-                              >
-                                {isTranscriptWarning
-                                  ? t('recipeModalStepByStepCautionTitle')
-                                  : t('recipeModalStepByStepTitle')}
-                              </p>
-                              <p
-                                className={`text-xs ${
-                                  isTranscriptWarning ? 'text-red-500' : 'text-brand-orange/70'
-                                }`}
-                              >
-                                {isTranscriptWarning
-                                  ? t('recipeModalStepByStepCautionSubtitle')
-                                  : t('recipeModalStepByStepSubtitle')}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="mt-4 grid gap-3 md:grid-cols-2">
-                            {instructionsToDisplay.map((instruction, instructionIndex) => {
-                              const { summary, details } = extractStepSummary(instruction);
-                              return (
-                                <div
-                                  key={`${recipe.recipeName}-instruction-${instructionIndex}`}
-                                  className="relative overflow-hidden rounded-2xl border border-brand-orange/20 bg-white/80 p-4 shadow-sm"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-orange text-sm font-semibold text-white">
-                                      {instructionIndex + 1}
-                                    </span>
-                                    <div className="space-y-1">
-                                      <p className="text-sm font-semibold text-gray-800">{summary}</p>
-                                      {details && <p className="text-xs leading-relaxed text-gray-600">{details}</p>}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <p
-                            className={`mt-4 text-right text-[11px] font-semibold uppercase tracking-wide ${
-                              isTranscriptWarning ? 'text-red-500' : 'text-brand-orange/80'
-                            }`}
-                          >
-                            {isTranscriptWarning
-                              ? t('recipeModalStepByStepCautionHint')
-                              : t('recipeModalStepByStepHint')}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   </article>
                 );

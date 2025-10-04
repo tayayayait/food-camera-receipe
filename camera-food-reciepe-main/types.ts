@@ -26,7 +26,6 @@ export interface Recipe {
     recipeName: string;
     description: string;
     ingredientsNeeded: string[];
-    instructions: string[];
 }
 
 export type RecipeVideoTranscriptStatus =
@@ -99,7 +98,6 @@ export interface RecipeMemory {
     lastCookedAt?: string | null;
     timesCooked: number;
     ingredients?: string[];
-    instructions?: string[];
     videos?: RecipeVideo[];
     selectedVideoId?: string | null;
     journalPreviewImage?: string | null;
