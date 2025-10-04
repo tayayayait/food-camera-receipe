@@ -441,16 +441,9 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                   <article key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
                     <div className="space-y-6">
                       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                        <div className="space-y-3 flex-1">
-                          <h3 className="text-xl font-semibold text-gray-800">{recipe.recipeName}</h3>
-                          <p className="text-sm text-gray-600 leading-relaxed">{recipe.description}</p>
-
-                          <div className="mt-2 rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <div>
-                              <p className="text-sm font-semibold text-brand-blue">{t('recipeModalJournalTitle')}</p>
-                              <p className="text-xs text-brand-blue/70">{t('recipeModalJournalSubtitle')}</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
+                        <div className="flex-1">
+                          <div className="rounded-2xl border border-brand-blue/15 bg-brand-blue/5 p-4">
+                            <div className="flex flex-col items-start gap-2 md:flex-row md:items-center md:gap-3">
                               <button
                                 type="button"
                                 onClick={() => handleSaveToJournal(recipeForDisplay)}
@@ -462,15 +455,17 @@ const RecipeModal: React.FC<RecipeModalProps> = ({
                               >
                                 {isSaved ? t('recipeModalSaveButtonSaved') : t('recipeModalSaveButton')}
                               </button>
-                              {isJustSaved ? (
-                                <p className={`text-xs ${justSavedState?.isNew ? 'text-emerald-600' : 'text-gray-500'}`}>
-                                  {justSavedState?.isNew
-                                    ? t('recipeModalSaveNewSuccess')
-                                    : t('recipeModalSaveExisting')}
-                                </p>
-                              ) : (
-                                isSaved && <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
-                              )}
+                              <div className="min-h-[1.25rem]">
+                                {isJustSaved ? (
+                                  <p className={`text-xs ${justSavedState?.isNew ? 'text-emerald-600' : 'text-gray-500'}`}>
+                                    {justSavedState?.isNew
+                                      ? t('recipeModalSaveNewSuccess')
+                                      : t('recipeModalSaveExisting')}
+                                  </p>
+                                ) : (
+                                  isSaved && <p className="text-xs text-gray-500">{t('recipeModalSaveExisting')}</p>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
